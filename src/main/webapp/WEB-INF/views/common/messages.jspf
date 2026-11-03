@@ -1,0 +1,8 @@
+<c:if test="${not empty flashMessage}">
+    <div class="alert alert-${empty flashType ? 'info' : flashType}" role="status">
+        <c:out value="${flashMessage}"/>
+    </div>
+</c:if>
+<c:if test="${not empty error}">
+    <div class="alert alert-danger" role="alert"><c:out value="${error}"/></div>
+</c:if>

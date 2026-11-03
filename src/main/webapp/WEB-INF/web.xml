@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns="http://xmlns.jcp.org/xml/ns/javaee"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_4_0.xsd"
+         version="4.0">
+    <display-name>剧本杀预约与场次管理系统</display-name>
+    <welcome-file-list>
+        <welcome-file>index.jsp</welcome-file>
+    </welcome-file-list>
+    <session-config>
+        <session-timeout>30</session-timeout>
+        <cookie-config>
+            <http-only>true</http-only>
+        </cookie-config>
+        <tracking-mode>COOKIE</tracking-mode>
+    </session-config>
+    <error-page>
+        <error-code>403</error-code>
+        <location>/WEB-INF/views/error/403.jsp</location>
+    </error-page>
+    <error-page>
+        <error-code>404</error-code>
+        <location>/WEB-INF/views/error/404.jsp</location>
+    </error-page>
+    <error-page>
+        <exception-type>java.lang.Throwable</exception-type>
+        <location>/WEB-INF/views/error/error.jsp</location>
+    </error-page>
+
+    <!-- 响应头、请求编码与 /uploads 访问控制；业务鉴权与 CSRF 校验已交给 Struts 拦截器 -->
+    <filter>
+        <filter-name>securityFilter</filter-name>
+        <filter-class>com.example.scriptbooking.filter.SecurityFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>securityFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+
+    <!-- Struts 2 核心过滤器：所有业务请求交给 Action 处理，静态资源直接放行 -->
+    <filter>
+        <filter-name>struts2</filter-name>
+        <filter-class>org.apache.struts2.dispatcher.filter.StrutsPrepareAndExecuteFilter</filter-class>
+        <init-param>
+            <param-name>excludePattern</param-name>
+            <param-value>/assets/.*,/uploads/.*</param-value>
+        </init-param>
+    </filter>
+    <filter-mapping>
+        <filter-name>struts2</filter-name>
+        <url-pattern>/*</url-pattern>
+        <dispatcher>REQUEST</dispatcher>
+    </filter-mapping>
+
+    <jsp-config>
+        <!--
+            统一 JSP 源文件读取编码与默认响应编码。
+            JSP 未声明 pageEncoding 时，Tomcat 默认按 ISO-8859-1 读取页面，会导致中文乱码。
+            注意：url-pattern 必须是 *.jsp 和 *.jspf，不能写成 /*。写成 /* 会让 Tomcat 把
+            /assets/ 下的 CSS、SVG 也交给 Jasper 当作 JSP 处理，响应头变成
+            text/html，配合 X-Content-Type-Options: nosniff 后浏览器会拒绝加载样式与图片；
+            漏掉 *.jspf 则页脚、分页等被静态包含的片段会按 ISO-8859-1 读取而出现中文乱码。
+        -->
+        <jsp-property-group>
+            <url-pattern>*.jsp</url-pattern>
+            <url-pattern>*.jspf</url-pattern>
+            <page-encoding>UTF-8</page-encoding>
+            <default-content-type>text/html; charset=UTF-8</default-content-type>
+        </jsp-property-group>
+    </jsp-config>
+</web-app>

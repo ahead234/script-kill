@@ -1,0 +1,138 @@
+<%@ page contentType="text/html;charset=UTF-8" %>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<c:set var="ctx" value="${pageContext.request.contextPath}"/>
+<%-- 视图经 forward/error dispatch 进入，requestURI 会变成视图路径，这里取原始请求路径 --%>
+<c:set var="originalUri" value="${requestScope['javax.servlet.forward.request_uri']}"/>
+<c:if test="${empty originalUri}"><c:set var="originalUri" value="${requestScope['javax.servlet.error.request_uri']}"/></c:if>
+<c:if test="${empty originalUri}"><c:set var="originalUri" value="${pageContext.request.requestURI}"/></c:if>
+<c:set var="adminPath" value="${fn:substringAfter(originalUri, ctx)}"/>
+<c:set var="isAdminPage" value="${fn:startsWith(adminPath, '/admin/')}"/>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title><c:out value="${pageTitle}"/> · 雾灯剧场</title>
+    <link rel="stylesheet" href="${ctx}/assets/css/app.css">
+    <c:choose>
+        <c:when test="${isAdminPage}">
+            <link rel="stylesheet" href="${ctx}/assets/css/admin.css">
+        </c:when>
+        <c:otherwise>
+            <link rel="stylesheet" href="${ctx}/assets/css/front.css">
+        </c:otherwise>
+    </c:choose>
+</head>
+<body class="${isAdminPage ? 'admin-page' : 'front-page'}">
+<c:choose>
+    <c:when test="${isAdminPage}">
+        <%-- 管理后台：左侧固定导航 + 右侧主区域 --%>
+        <div class="app-shell with-sidebar">
+            <aside class="sidebar">
+                <a class="side-brand" href="${ctx}/admin/dashboard">
+                    <span class="brand-mark">雾</span>
+                    <span class="side-brand-text"><strong>雾灯剧场</strong><small>管理后台</small></span>
+                </a>
+
+                <nav class="side-nav">
+                    <c:if test="${sessionScope.currentUser.hasRole('ADMIN')}">
+                        <a class="side-link ${fn:startsWith(adminPath, '/admin/users') ? 'active' : ''}" href="${ctx}/admin/users">
+                            <svg class="side-ico" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="7" r="3.2"/><path d="M3.5 17c0-3.4 2.9-5.5 6.5-5.5s6.5 2.1 6.5 5.5"/></svg>
+                            <span>用户管理</span>
+                        </a>
+                    </c:if>
+                    <c:if test="${sessionScope.currentUser.hasRole('ADMIN') || sessionScope.currentUser.hasRole('MANAGER')}">
+                        <a class="side-link ${fn:startsWith(adminPath, '/admin/scripts') ? 'active' : ''}" href="${ctx}/admin/scripts">
+                            <svg class="side-ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 3.5h5a2 2 0 0 1 2 2v11a2 2 0 0 0-2-2H4z"/><path d="M16 3.5h-5a2 2 0 0 0-2 2v11a2 2 0 0 1 2-2h5z"/></svg>
+                            <span>剧本管理</span>
+                        </a>
+                        <a class="side-link ${fn:startsWith(adminPath, '/admin/sessions') ? 'active' : ''}" href="${ctx}/admin/sessions">
+                            <svg class="side-ico" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M10 6v4.3l3 1.8"/></svg>
+                            <span>场次排期</span>
+                        </a>
+                    </c:if>
+                    <c:if test="${sessionScope.currentUser.hasRole('ADMIN') || sessionScope.currentUser.hasRole('MANAGER') || sessionScope.currentUser.hasRole('STAFF')}">
+                        <a class="side-link ${fn:startsWith(adminPath, '/admin/bookings') ? 'active' : ''}" href="${ctx}/admin/bookings">
+                            <svg class="side-ico" viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="4" width="15" height="13" rx="2"/><path d="M2.5 8h15M6.5 2.5v3M13.5 2.5v3"/></svg>
+                            <span>预约管理</span>
+                        </a>
+                    </c:if>
+                    <c:if test="${sessionScope.currentUser.hasRole('ADMIN') || sessionScope.currentUser.hasRole('MANAGER')}">
+                        <a class="side-link ${fn:startsWith(adminPath, '/admin/reviews') ? 'active' : ''}" href="${ctx}/admin/reviews?status=PENDING">
+                            <svg class="side-ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.8l2.2 4.5 5 .7-3.6 3.5.85 4.9L10 13.9l-4.45 2.5.85-4.9L2.8 8l5-.7z"/></svg>
+                            <span>评价管理</span>
+                        </a>
+                        <a class="side-link ${fn:startsWith(adminPath, '/admin/logs') ? 'active' : ''}" href="${ctx}/admin/logs">
+                            <svg class="side-ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 3.5h10v13H5z"/><path d="M7.5 7h5M7.5 10h5M7.5 13h3"/></svg>
+                            <span>操作日志</span>
+                        </a>
+                    </c:if>
+                    <a class="side-link ${adminPath == '/admin/dashboard' ? 'active' : ''}" href="${ctx}/admin/dashboard">
+                        <svg class="side-ico" viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="2.5" width="6" height="6" rx="1.5"/><rect x="11.5" y="2.5" width="6" height="6" rx="1.5"/><rect x="2.5" y="11.5" width="6" height="6" rx="1.5"/><rect x="11.5" y="11.5" width="6" height="6" rx="1.5"/></svg>
+                        <span>数据报表</span>
+                    </a>
+                </nav>
+
+                <div class="side-foot">
+                    <a class="side-link side-link-quiet" href="${ctx}/scripts">
+                        <svg class="side-ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M11 4.5L5.5 10 11 15.5"/></svg>
+                        <span>返回前台</span>
+                    </a>
+                    <div class="side-user">
+                        <span class="side-avatar"><c:out value="${fn:substring(sessionScope.currentUser.displayName, 0, 1)}"/></span>
+                        <div>
+                            <strong><c:out value="${sessionScope.currentUser.displayName}"/></strong>
+                            <small><c:out value="${sessionScope.currentUser.roleText}"/></small>
+                        </div>
+                    </div>
+                    <form method="post" action="${ctx}/logout" class="inline-form">
+                        <input type="hidden" name="csrfToken" value="<c:out value='${sessionScope.csrfToken}'/>">
+                        <button class="side-logout" type="submit">
+                            <svg class="side-ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M8 4.5H5.5a1.5 1.5 0 0 0-1.5 1.5v8a1.5 1.5 0 0 0 1.5 1.5H8"/><path d="M12.5 6.5L16 10l-3.5 3.5M16 10H8"/></svg>
+                            <span>退出登录</span>
+                        </button>
+                    </form>
+                </div>
+            </aside>
+            <div class="admin-main">
+                <main class="main-content">
+    </c:when>
+    <c:otherwise>
+        <header class="topbar">
+            <div class="topbar-inner">
+                <a class="brand" href="${ctx}/scripts">
+                    <span class="brand-text">雾灯剧场</span>
+                </a>
+                <button class="nav-toggle" type="button" data-nav-toggle aria-label="展开导航">菜单</button>
+                <nav class="topnav" data-nav>
+                    <a class="${adminPath == '/scripts' || adminPath == '/index.jsp' ? 'active' : ''}" href="${ctx}/scripts">发现剧本</a>
+                    <a class="${adminPath == '/sessions' ? 'active' : ''}" href="${ctx}/sessions">下一场故事</a>
+                    <c:if test="${sessionScope.currentUser.hasRole('PLAYER')}">
+                        <a href="${ctx}/my/bookings">我的预约</a>
+                        <a href="${ctx}/my/reviews">我的评价</a>
+                    </c:if>
+                    <c:if test="${sessionScope.currentUser.management}">
+                        <a href="${ctx}/admin/dashboard">管理后台</a>
+                    </c:if>
+                </nav>
+                <div class="account-area">
+                    <c:choose>
+                        <c:when test="${not empty sessionScope.currentUser}">
+                            <span class="account-name"><c:out value="${sessionScope.currentUser.displayName}"/></span>
+                            <form method="post" action="${ctx}/logout" class="inline-form">
+                                <input type="hidden" name="csrfToken" value="<c:out value='${sessionScope.csrfToken}'/>">
+                                <button class="link-button" type="submit">退出</button>
+                            </form>
+                        </c:when>
+                        <c:otherwise>
+                            <a class="button button-small button-primary" href="${ctx}/login">登录</a>
+                        </c:otherwise>
+                    </c:choose>
+                </div>
+            </div>
+        </header>
+        <div class="app-shell">
+            <main class="main-content">
+    </c:otherwise>
+</c:choose>

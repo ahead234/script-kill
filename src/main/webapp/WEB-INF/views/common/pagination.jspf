@@ -1,0 +1,27 @@
+<%--
+    页面都是 Servlet 转发到 /WEB-INF/views 下的 JSP 渲染的，此时 request.servletPath 已经是
+    JSP 的路径，直接用会生成 /WEB-INF/... 这种无法访问的翻页链接。转发前保存的原始路径放在
+    javax.servlet.forward.servlet_path 里，优先使用它。
+--%>
+<c:set var="pagePath" value="${empty requestScope['javax.servlet.forward.servlet_path'] ? pageContext.request.servletPath : requestScope['javax.servlet.forward.servlet_path']}"/>
+<c:if test="${result.totalPages > 1}">
+    <c:url var="previousUrl" value="${pagePath}">
+        <c:param name="page" value="${result.page - 1}"/>
+        <c:if test="${not empty param.keyword}"><c:param name="keyword" value="${param.keyword}"/></c:if>
+        <c:if test="${not empty param.genre}"><c:param name="genre" value="${param.genre}"/></c:if>
+        <c:if test="${not empty param.status}"><c:param name="status" value="${param.status}"/></c:if>
+        <c:if test="${not empty param.date}"><c:param name="date" value="${param.date}"/></c:if>
+    </c:url>
+    <c:url var="nextUrl" value="${pagePath}">
+        <c:param name="page" value="${result.page + 1}"/>
+        <c:if test="${not empty param.keyword}"><c:param name="keyword" value="${param.keyword}"/></c:if>
+        <c:if test="${not empty param.genre}"><c:param name="genre" value="${param.genre}"/></c:if>
+        <c:if test="${not empty param.status}"><c:param name="status" value="${param.status}"/></c:if>
+        <c:if test="${not empty param.date}"><c:param name="date" value="${param.date}"/></c:if>
+    </c:url>
+    <nav class="pagination" aria-label="分页">
+        <a class="${result.hasPrevious ? '' : 'disabled'}" href="${result.hasPrevious ? previousUrl : '#'}">上一页</a>
+        <span>第 ${result.page} / ${result.totalPages} 页 · 共 ${result.total} 条</span>
+        <a class="${result.hasNext ? '' : 'disabled'}" href="${result.hasNext ? nextUrl : '#'}">下一页</a>
+    </nav>
+</c:if>

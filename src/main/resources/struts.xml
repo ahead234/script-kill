@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC
+        "-//Apache Software Foundation//DTD Struts Configuration 2.5//EN"
+        "http://struts.apache.org/dtds/struts-2.5.dtd">
+<!--
+    Struts 2.5 核心配置。
+    请求路径与迁移前保持一致：namespace 对应 URL 的目录部分，action 对应最后一段，
+    例如 /admin/scripts/form 由 namespace="/admin/scripts" 下的 form 处理，
+    /scripts/detail 由 namespace="/scripts" 下的 detail 处理。
+-->
+<struts>
+    <constant name="struts.devMode" value="false"/>
+    <constant name="struts.i18n.encoding" value="UTF-8"/>
+    <!-- 允许无扩展名的地址，保持原有 /scripts、/admin/dashboard 这类路径不变 -->
+    <constant name="struts.action.extension" value=",action"/>
+    <constant name="struts.enable.DynamicMethodInvocation" value="false"/>
+    <constant name="struts.mapper.alwaysSelectFullNamespace" value="false"/>
+    <constant name="struts.ui.theme" value="simple"/>
+    <constant name="struts.configuration.xml.reload" value="false"/>
+    <!-- 上传请求总大小上限 5MB，单个封面文件上限由 fileUpload 拦截器限制为 2MB -->
+    <constant name="struts.multipart.maxSize" value="5242880"/>
+
+    <package name="base" extends="struts-default" abstract="true">
+        <interceptors>
+            <interceptor name="security" class="com.example.scriptbooking.interceptor.AuthInterceptor"/>
+
+            <interceptor-stack name="publicStack">
+                <interceptor-ref name="security"/>
+                <interceptor-ref name="defaultStack"/>
+            </interceptor-stack>
+            <interceptor-stack name="playerStack">
+                <interceptor-ref name="security">
+                    <param name="roles">PLAYER</param>
+                </interceptor-ref>
+                <interceptor-ref name="defaultStack"/>
+            </interceptor-stack>
+            <interceptor-stack name="managementStack">
+                <interceptor-ref name="security">
+                    <param name="roles">ADMIN,MANAGER,STAFF,VIEWER</param>
+                </interceptor-ref>
+                <interceptor-ref name="defaultStack"/>
+            </interceptor-stack>
+            <interceptor-stack name="staffStack">
+                <interceptor-ref name="security">
+                    <param name="roles">ADMIN,MANAGER,STAFF</param>
+                </interceptor-ref>
+                <interceptor-ref name="defaultStack"/>
+            </interceptor-stack>
+            <interceptor-stack name="managerStack">
+                <interceptor-ref name="security">
+                    <param name="roles">ADMIN,MANAGER</param>
+                </interceptor-ref>
+                <interceptor-ref name="defaultStack"/>
+            </interceptor-stack>
+            <interceptor-stack name="managerUploadStack">
+                <interceptor-ref name="security">
+                    <param name="roles">ADMIN,MANAGER</param>
+                </interceptor-ref>
+                <interceptor-ref name="defaultStack">
+                    <param name="fileUpload.maximumSize">2097152</param>
+                </interceptor-ref>
+            </interceptor-stack>
+            <interceptor-stack name="adminStack">
+                <interceptor-ref name="security">
+                    <param name="roles">ADMIN</param>
+                </interceptor-ref>
+                <interceptor-ref name="defaultStack"/>
+            </interceptor-stack>
+        </interceptors>
+
+        <global-results>
+            <!-- 未登录时跳转登录页；权限不足时渲染 403 页面 -->
+            <result name="login" type="redirect">/login</result>
+            <result name="forbidden">/WEB-INF/views/error/403.jsp</result>
+            <!-- Action 统一返回 redirect 结果，跳转地址由 redirectUrl 属性决定 -->
+            <result name="redirect" type="redirect">
+                <param name="location">${redirectUrl}</param>
+            </result>
+            <!-- 全局异常处理：未被捕获的异常统一渲染错误页 -->
+            <result name="error">/WEB-INF/views/error/error.jsp</result>
+        </global-results>
+
+        <global-exception-mappings>
+            <exception-mapping exception="java.lang.Throwable" result="error"/>
+        </global-exception-mappings>
+    </package>
+
+    <!-- 前台首页、登录与场次列表 -->
+    <package name="front" namespace="/" extends="base">
+        <default-interceptor-ref name="publicStack"/>
+
+        <action name="login" class="com.example.scriptbooking.action.AuthAction">
+            <result name="success">/WEB-INF/views/login.jsp</result>
+            <result name="input">/WEB-INF/views/login.jsp</result>
+        </action>
+
+        <action name="logout" class="com.example.scriptbooking.action.AuthAction" method="logout">
+            <allowed-methods>logout</allowed-methods>
+        </action>
+
+        <action name="register" class="com.example.scriptbooking.action.RegisterAction">
+            <result name="success">/WEB-INF/views/register.jsp</result>
+            <result name="input">/WEB-INF/views/register.jsp</result>
+        </action>
+
+        <action name="terms" class="com.example.scriptbooking.action.LegalAction" method="terms">
+            <result name="success">/WEB-INF/views/legal/terms.jsp</result>
+            <allowed-methods>terms</allowed-methods>
+        </action>
+
+        <action name="privacy" class="com.example.scriptbooking.action.LegalAction" method="privacy">
+            <result name="success">/WEB-INF/views/legal/privacy.jsp</result>
+            <allowed-methods>privacy</allowed-methods>
+        </action>
+
+        <action name="scripts" class="com.example.scriptbooking.action.CatalogAction" method="list">
+            <result name="success">/WEB-INF/views/catalog/scripts.jsp</result>
+            <allowed-methods>list</allowed-methods>
+        </action>
+
+        <action name="sessions" class="com.example.scriptbooking.action.CatalogAction" method="upcoming">
+            <result name="success">/WEB-INF/views/catalog/sessions.jsp</result>
+            <allowed-methods>upcoming</allowed-methods>
+        </action>
+    </package>
+
+    <!-- 剧本详情 -->
+    <package name="scriptDetail" namespace="/scripts" extends="base">
+        <default-interceptor-ref name="publicStack"/>
+        <action name="detail" class="com.example.scriptbooking.action.CatalogAction" method="scriptDetail">
+            <result name="success">/WEB-INF/views/catalog/script-detail.jsp</result>
+            <allowed-methods>scriptDetail</allowed-methods>
+        </action>
+    </package>
+
+    <!-- 场次详情 -->
+    <package name="sessionDetail" namespace="/sessions" extends="base">
+        <default-interceptor-ref name="publicStack"/>
+        <action name="detail" class="com.example.scriptbooking.action.CatalogAction" method="sessionDetail">
+            <result name="success">/WEB-INF/views/catalog/session-detail.jsp</result>
+            <allowed-methods>sessionDetail</allowed-methods>
+        </action>
+    </package>
+
+    <!-- 玩家预约 -->
+    <package name="booking" namespace="/bookings" extends="base">
+        <default-interceptor-ref name="playerStack"/>
+
+        <action name="create" class="com.example.scriptbooking.action.BookingAction" method="create">
+            <result name="success">/WEB-INF/views/booking/form.jsp</result>
+            <result name="input">/WEB-INF/views/booking/form.jsp</result>
+            <allowed-methods>create</allowed-methods>
+        </action>
+
+        <action name="detail" class="com.example.scriptbooking.action.BookingAction" method="detail">
+            <result name="success">/WEB-INF/views/booking/detail.jsp</result>
+            <allowed-methods>detail</allowed-methods>
+        </action>
+
+        <action name="cancel" class="com.example.scriptbooking.action.BookingAction" method="cancel">
+            <allowed-methods>cancel</allowed-methods>
+        </action>
+    </package>
+
+    <!-- 玩家个人中心 -->
+    <package name="my" namespace="/my" extends="base">
+        <default-interceptor-ref name="playerStack"/>
+
+        <action name="bookings" class="com.example.scriptbooking.action.BookingAction" method="list">
+            <result name="success">/WEB-INF/views/booking/list.jsp</result>
+            <allowed-methods>list</allowed-methods>
+        </action>
+
+        <action name="reviews" class="com.example.scriptbooking.action.ReviewAction" method="list">
+            <result name="success">/WEB-INF/views/review/list.jsp</result>
+            <allowed-methods>list</allowed-methods>
+        </action>
+    </package>
+
+    <!-- 玩家评价 -->
+    <package name="review" namespace="/reviews" extends="base">
+        <default-interceptor-ref name="playerStack"/>
+
+        <action name="create" class="com.example.scriptbooking.action.ReviewAction" method="create">
+            <result name="success">/WEB-INF/views/review/form.jsp</result>
+            <result name="input">/WEB-INF/views/review/form.jsp</result>
+            <allowed-methods>create</allowed-methods>
+        </action>
+    </package>
+
+    <!-- 管理后台一级页面 -->
+    <package name="admin" namespace="/admin" extends="base">
+
+        <action name="dashboard" class="com.example.scriptbooking.action.AdminAction" method="dashboard">
+            <interceptor-ref name="managementStack"/>
+            <result name="success">/WEB-INF/views/admin/dashboard.jsp</result>
+            <allowed-methods>dashboard</allowed-methods>
+        </action>
+
+        <action name="users" class="com.example.scriptbooking.action.AdminAction" method="users">
+            <interceptor-ref name="adminStack"/>
+            <result name="success">/WEB-INF/views/admin/users.jsp</result>
+            <allowed-methods>users</allowed-methods>
+        </action>
+
+        <action name="logs" class="com.example.scriptbooking.action.AdminAction" method="logs">
+            <interceptor-ref name="managerStack"/>
+            <result name="success">/WEB-INF/views/admin/logs.jsp</result>
+            <allowed-methods>logs</allowed-methods>
+        </action>
+
+        <action name="scripts" class="com.example.scriptbooking.action.AdminScriptAction" method="list">
+            <interceptor-ref name="managerStack"/>
+            <result name="success">/WEB-INF/views/admin/scripts.jsp</result>
+            <allowed-methods>list</allowed-methods>
+        </action>
+
+        <action name="sessions" class="com.example.scriptbooking.action.AdminSessionAction" method="list">
+            <interceptor-ref name="managerStack"/>
+            <result name="success">/WEB-INF/views/admin/sessions.jsp</result>
+            <allowed-methods>list</allowed-methods>
+        </action>
+
+        <action name="bookings" class="com.example.scriptbooking.action.AdminBookingAction" method="list">
+            <interceptor-ref name="staffStack"/>
+            <result name="success">/WEB-INF/views/admin/bookings.jsp</result>
+            <allowed-methods>list</allowed-methods>
+        </action>
+
+        <action name="reviews" class="com.example.scriptbooking.action.AdminReviewAction" method="list">
+            <interceptor-ref name="managerStack"/>
+            <result name="success">/WEB-INF/views/admin/reviews.jsp</result>
+            <allowed-methods>list</allowed-methods>
+        </action>
+    </package>
+
+    <!-- 后台：用户启停 -->
+    <package name="adminUsers" namespace="/admin/users" extends="base">
+        <default-interceptor-ref name="adminStack"/>
+        <action name="status" class="com.example.scriptbooking.action.AdminAction" method="changeUserStatus">
+            <allowed-methods>changeUserStatus</allowed-methods>
+        </action>
+    </package>
+
+    <!-- 后台：剧本维护 -->
+    <package name="adminScripts" namespace="/admin/scripts" extends="base">
+        <default-interceptor-ref name="managerStack"/>
+
+        <action name="form" class="com.example.scriptbooking.action.AdminScriptAction" method="showForm">
+            <result name="success">/WEB-INF/views/admin/script-form.jsp</result>
+            <allowed-methods>showForm</allowed-methods>
+        </action>
+
+        <action name="save" class="com.example.scriptbooking.action.AdminScriptAction" method="save">
+            <interceptor-ref name="managerUploadStack"/>
+            <result name="input">/WEB-INF/views/admin/script-form.jsp</result>
+            <allowed-methods>save</allowed-methods>
+        </action>
+
+        <action name="status" class="com.example.scriptbooking.action.AdminScriptAction" method="changeStatus">
+            <allowed-methods>changeStatus</allowed-methods>
+        </action>
+    </package>
+
+    <!-- 后台：场次排期 -->
+    <package name="adminSessions" namespace="/admin/sessions" extends="base">
+        <default-interceptor-ref name="managerStack"/>
+
+        <action name="form" class="com.example.scriptbooking.action.AdminSessionAction" method="showForm">
+            <result name="success">/WEB-INF/views/admin/session-form.jsp</result>
+            <allowed-methods>showForm</allowed-methods>
+        </action>
+
+        <action name="save" class="com.example.scriptbooking.action.AdminSessionAction" method="save">
+            <result name="input">/WEB-INF/views/admin/session-form.jsp</result>
+            <allowed-methods>save</allowed-methods>
+        </action>
+
+        <action name="cancel" class="com.example.scriptbooking.action.AdminSessionAction" method="cancel">
+            <allowed-methods>cancel</allowed-methods>
+        </action>
+    </package>
+
+    <!-- 后台：预约接待 -->
+    <package name="adminBookings" namespace="/admin/bookings" extends="base">
+        <default-interceptor-ref name="staffStack"/>
+
+        <action name="detail" class="com.example.scriptbooking.action.AdminBookingAction" method="detail">
+            <result name="success">/WEB-INF/views/admin/booking-detail.jsp</result>
+            <allowed-methods>detail</allowed-methods>
+        </action>
+
+        <action name="status" class="com.example.scriptbooking.action.AdminBookingAction" method="changeStatus">
+            <allowed-methods>changeStatus</allowed-methods>
+        </action>
+    </package>
+
+    <!-- 后台：评价审核 -->
+    <package name="adminReviews" namespace="/admin/reviews" extends="base">
+        <default-interceptor-ref name="managerStack"/>
+        <action name="moderate" class="com.example.scriptbooking.action.AdminReviewAction" method="moderate">
+            <allowed-methods>moderate</allowed-methods>
+        </action>
+    </package>
+
+    <!-- 后台：报表数据接口 -->
+    <package name="adminApi" namespace="/admin/api" extends="base">
+        <default-interceptor-ref name="managementStack"/>
+        <action name="stats" class="com.example.scriptbooking.action.StatsAction">
+            <result name="success" type="stream">
+                <param name="contentType">application/json;charset=UTF-8</param>
+                <param name="inputName">jsonStream</param>
+            </result>
+        </action>
+    </package>
+</struts>

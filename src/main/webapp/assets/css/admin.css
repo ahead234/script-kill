@@ -1,0 +1,164 @@
+/* 管理后台：左侧固定导航 + 右侧主区域；配色沿用前台既有的米白底 / 墨绿主色 */
+
+.admin-page .app-shell.with-sidebar { display: block; width: 100%; margin: 0; min-height: 100vh; }
+
+/* 侧栏：整屏固定，顶部品牌、中部菜单、底部账号与退出 */
+.admin-page .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 20;
+    width: 236px;
+    padding: 20px 14px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    background: #293b36;
+    color: #dce8e4;
+    overflow-y: auto;
+}
+
+.admin-page .side-brand { display: flex; align-items: center; gap: 11px; padding: 2px 8px 16px; border-bottom: 1px solid rgba(255,255,255,.09); color: #fff; }
+.admin-page .side-brand:hover { color: #fff; }
+.admin-page .side-brand .brand-mark { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--primary); color: #fff; font: 700 17px/1 serif; }
+.admin-page .side-brand-text strong { display: block; font-size: 14px; letter-spacing: .06em; line-height: 1.3; }
+.admin-page .side-brand-text small { display: block; color: #90a59e; font-size: 11px; margin-top: 2px; }
+
+.admin-page .side-nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.admin-page .sidebar a.side-link {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 12px;
+    border-left: 3px solid transparent;
+    border-radius: 9px;
+    color: #cdddd7;
+    font-size: 13.5px;
+    font-weight: 600;
+}
+.admin-page .sidebar a.side-link:hover { color: #fff; background: rgba(255,255,255,.08); }
+.admin-page .sidebar a.side-link.active { color: #fff; background: rgba(255,255,255,.15); border-left-color: #8fb3a6; }
+.admin-page .side-ico { width: 18px; height: 18px; flex: none; fill: none; stroke: #9db3ac; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.admin-page .sidebar a.side-link:hover .side-ico,
+.admin-page .sidebar a.side-link.active .side-ico { stroke: #fff; }
+
+.admin-page .side-foot { margin-top: auto; padding-top: 14px; display: flex; flex-direction: column; gap: 10px; border-top: 1px solid rgba(255,255,255,.09); }
+.admin-page .side-link-quiet { color: #a9bcb6; }
+.admin-page .side-user { display: flex; align-items: center; gap: 10px; padding: 2px 4px; }
+.admin-page .side-avatar { width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 50%; background: rgba(255,255,255,.14); color: #fff; font-size: 13px; font-weight: 700; }
+.admin-page .side-user strong { display: block; color: #fff; font-size: 13px; line-height: 1.3; }
+.admin-page .side-user small { display: block; color: #90a59e; font-size: 11px; }
+.admin-page .side-logout {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 11px;
+    border: 0;
+    border-radius: 9px;
+    background: rgba(255,255,255,.06);
+    color: #cdddd7;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: left;
+}
+.admin-page .side-logout:hover { background: rgba(255,255,255,.14); color: #fff; }
+.admin-page .side-logout:hover .side-ico { stroke: #fff; }
+
+/* 主区域 */
+.admin-page .admin-main { margin-left: 236px; min-width: 0; min-height: 100vh; display: flex; flex-direction: column; }
+.admin-page .main-content { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-content: start; padding: 0 28px 40px; min-width: 0; }
+
+/* 页面顶部标题条：左侧标题，右侧操作区 */
+.admin-page .main-content .page-header {
+    margin: 0 -28px;
+    padding: 18px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+}
+.admin-page .main-content .page-header h1 { font-size: 21px; }
+.admin-page .main-content .page-header p { margin: 4px 0 0; font-size: 13px; }
+.admin-page .main-content .page-header > div:first-child { min-width: 0; }
+
+.admin-page .main-content .alert,
+.admin-page .main-content .filter-bar,
+.admin-page .main-content .panel,
+.admin-page .main-content .table-wrap,
+.admin-page .main-content .summary-grid,
+.admin-page .main-content .report-panel { margin: 0; }
+.admin-page .main-content .review-card + .review-card { margin-top: 0; }
+
+.admin-page .admin-footer { margin-top: auto; background: transparent; }
+
+/* 概览指标卡 */
+.admin-page .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr)); gap: 16px; }
+.admin-page .summary-card { padding: 22px 20px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; }
+.summary-label { color: var(--muted); font-size: 12.5px; }
+.summary-value { font-size: 30px; font-weight: 750; line-height: 1.15; color: var(--text); }
+.summary-meta { color: var(--muted); font-size: 11.5px; }
+
+/* 报表面板：标题条 + 左右两列图表 */
+.admin-page .report-panel { padding: 0; overflow: hidden; }
+.admin-page .report-panel .panel-header { margin: 0; padding: 15px 22px; background: #f8faf9; border-bottom: 1px solid var(--line); }
+.admin-page .report-panel .panel-header h2 { font-size: 15.5px; }
+.admin-page .report-split { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); gap: 18px 28px; padding: 18px 22px 20px; }
+.admin-page .report-block { min-width: 0; }
+.admin-page .report-block-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+.admin-page .report-block-head h3 { margin: 0; font-size: 13.5px; font-weight: 700; }
+.admin-page .report-block-note { color: var(--muted); font-size: 11.5px; white-space: nowrap; }
+.admin-page .chart-box { width: 100%; height: 280px; }
+
+/* 报表页顶部日期区间与刷新 */
+.admin-page .report-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.admin-page .report-date { width: 158px; height: 36px; }
+.admin-page .report-range-sep { color: var(--muted); font-size: 12px; }
+.admin-page .report-actions .button svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* 列表页辅助样式 */
+.table-cover { display: block; width: 46px; height: 34px; object-fit: cover; border-radius: 4px; border: 1px solid var(--line); background: #e6eae8; }
+.cover-preview { display: block; width: 160px; height: 100px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); background: #e6eae8; }
+
+@media (max-width: 1100px) {
+    .admin-page .sidebar { width: 208px; }
+    .admin-page .admin-main { margin-left: 208px; }
+}
+
+@media (max-width: 900px) {
+    .admin-page .sidebar {
+        position: static;
+        width: auto;
+        height: auto;
+        padding: 10px 12px;
+        flex-direction: row;
+        align-items: center;
+        gap: 10px;
+        overflow-x: auto;
+    }
+    .admin-page .side-brand { padding: 0 8px 0 0; border-bottom: 0; }
+    .admin-page .side-brand-text { display: none; }
+    .admin-page .side-nav { flex-direction: row; gap: 4px; flex: none; }
+    .admin-page .sidebar a.side-link { padding: 8px 10px; border-left: 0; border-bottom: 2px solid transparent; white-space: nowrap; }
+    .admin-page .sidebar a.side-link.active { border-bottom-color: #8fb3a6; }
+    .admin-page .side-foot { display: flex; flex-direction: row; align-items: center; gap: 8px; margin: 0; padding: 0; border: 0; }
+    .admin-page .side-user, .admin-page .side-link-quiet { display: none; }
+    .admin-page .side-logout { width: auto; padding: 7px 10px; white-space: nowrap; }
+    .admin-page .admin-main { margin-left: 0; }
+    .admin-page .main-content { padding: 0 14px 32px; }
+    .admin-page .main-content .page-header { margin: 0 -14px; padding: 14px; }
+}
+
+@media (max-width: 760px) {
+    .admin-page .report-split { padding: 14px 16px 18px; }
+    .admin-page .report-panel .panel-header { padding: 13px 16px; }
+    .admin-page .chart-box { height: 240px; }
+    .admin-page .report-date { width: 100%; }
+    .admin-page .report-actions { width: 100%; }
+    .admin-page .admin-footer { flex-direction: column; }
+}

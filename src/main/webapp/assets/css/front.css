@@ -1,0 +1,52 @@
+/* 普通用户前台：上下流式布局，导航使用 flex，卡片区域使用 Grid 自适应 */
+
+.front-page .topbar-inner { gap: 24px; }
+.brand-text { color: var(--text); font-size: 19px; font-weight: 700; letter-spacing: .1em; }
+.brand:hover .brand-text { color: var(--primary); }
+.topnav a { padding: 4px 0; border-bottom: 2px solid transparent; }
+.topnav a.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+.front-page .app-shell { width: min(1280px, calc(100% - 40px)); margin: 0 auto; display: block; }
+.front-page .main-content { padding: 26px 0 56px; }
+
+.section-block { margin-bottom: 30px; }
+.section-title { margin: 0 0 18px; font-size: 20px; font-weight: 650; letter-spacing: -.01em; }
+.front-page .page-header { margin-bottom: 18px; }
+.front-page .page-header h1 { font-size: 24px; }
+
+/* 轮播 */
+.slider { position: relative; margin: 0 0 28px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #e6eae8; }
+.slider-track { position: relative; height: 0; padding-bottom: 34%; }
+.slide { position: absolute; top: 0; right: 0; bottom: 0; left: 0; opacity: 0; transition: opacity .5s ease; }
+.slide.is-active { opacity: 1; }
+.slide img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.slider-dots { position: absolute; right: 0; bottom: 14px; left: 0; display: flex; justify-content: center; gap: 8px; }
+.dot { width: 9px; height: 9px; padding: 0; border: 0; border-radius: 50%; background: rgba(255,255,255,.45); }
+.dot.is-active { background: #fff; }
+
+/* 详情页封面 */
+.hero-cover-img { display: block; width: 100%; height: 260px; object-fit: cover; border-radius: 10px; }
+
+/* 筛选区 */
+.front-page .filter-bar { padding: 16px; gap: 14px; }
+.front-page .filter-bar .button { min-height: 40px; }
+
+/* 剧本卡片栅格 */
+.script-card { display: flex; flex-direction: column; }
+.script-cover-img { display: block; width: 100%; height: 170px; object-fit: cover; border-bottom: 1px solid var(--line); }
+.script-title { margin: 0 0 8px; font-size: 17px; font-weight: 700; }
+.script-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--muted); font-size: 12px; }
+.script-desc { margin: 10px 0 16px; color: #52605b; font-size: 13px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.script-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: auto; }
+.rating { color: #7d6224; font-weight: 700; font-size: 13px; }
+
+/* 场次列表 */
+.front-page .session-list { gap: 12px; }
+.front-page .session-row { padding: 16px 18px; }
+
+@media (max-width: 760px) {
+    .front-page .app-shell { width: calc(100% - 28px); }
+    .slider-track { padding-bottom: 48%; }
+    .section-title { font-size: 17px; }
+    .script-cover-img { height: 150px; }
+}

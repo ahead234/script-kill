@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240" width="400" height="240" role="img" aria-label="剧本封面">
+    <rect width="400" height="240" fill="#4d5a56"/>
+    <g fill="none" stroke="#dde5e2" stroke-width="2" opacity=".75">
+        <circle cx="200" cy="120" r="62"/>
+        <path d="M200 82v38l28 18"/>
+        <path d="M200 52v10M262 120h10M200 188v-10M138 120h-10"/>
+    </g>
+</svg>
