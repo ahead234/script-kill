@@ -8,6 +8,7 @@ TRUNCATE TABLE sys_operation_log;
 TRUNCATE TABLE review;
 TRUNCATE TABLE booking;
 TRUNCATE TABLE play_session;
+TRUNCATE TABLE room;
 TRUNCATE TABLE script_book;
 TRUNCATE TABLE sys_user_role;
 TRUNCATE TABLE sys_user;
@@ -48,6 +49,13 @@ INSERT INTO script_book
 (9, 'SB-009', '旧胶片',   '悬疑', 4, 7, 190, 'MEDIUM', '悬疑,还原,年代', '一卷未冲洗的胶片，记录着一场没人愿意提起的意外。', '/assets/img/cover-4.svg', 'ACTIVE'),
 (10,'SB-010', '山雨欲来', '阵营', 6, 8, 280, 'HARD', '阵营,对抗,策略', '两方势力在暴雨前夜谈判，每个人都有自己的价码。', '/assets/img/cover-2.svg', 'INACTIVE'),
 (11,'SB-011', '糖霜小镇', '欢乐', 5, 8, 150, 'EASY', '新手,欢乐,派对', '小镇甜品大赛开赛，配方失窃只是这场闹剧的开始。', '/assets/img/cover-3.svg', 'ACTIVE');
+
+INSERT INTO room (id, room_code, room_name, capacity, location, status, note) VALUES
+(1, 'R01', '沉浸一号房', 6, '一层东侧', 'ACTIVE', '带投影与环绕音响，适合沉浸本'),
+(2, 'R02', '推理二号房', 6, '一层西侧', 'ACTIVE', '长桌布局，便于集中讨论'),
+(3, 'R03', '欢乐三号房', 7, '二层中庭', 'ACTIVE', NULL),
+(4, 'R04', '恐怖四号房', 7, '二层北侧', 'ACTIVE', '可调暗光，配独立音效通道'),
+(5, 'R05', '机制五号房', 6, '三层南侧', 'ACTIVE', '投影设备较旧，建议提前调试');
 
 INSERT INTO play_session
 (id, session_code, script_id, start_time, end_time, capacity, booked_count, room_name, dm_name, unit_price, status, remark) VALUES

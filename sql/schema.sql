@@ -10,6 +10,7 @@ DROP TABLE IF EXISTS sys_operation_log;
 DROP TABLE IF EXISTS review;
 DROP TABLE IF EXISTS booking;
 DROP TABLE IF EXISTS play_session;
+DROP TABLE IF EXISTS room;
 DROP TABLE IF EXISTS script_book;
 DROP TABLE IF EXISTS sys_user_role;
 DROP TABLE IF EXISTS sys_role;
@@ -66,6 +67,21 @@ CREATE TABLE script_book (
   CONSTRAINT ck_script_players CHECK (min_players > 0 AND max_players >= min_players),
   CONSTRAINT ck_script_duration CHECK (duration_minutes > 0),
   INDEX idx_script_search (status, genre, title)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE room (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  room_code VARCHAR(20) NOT NULL,
+  room_name VARCHAR(60) NOT NULL,
+  capacity INT NOT NULL,
+  location VARCHAR(80) NULL,
+  status ENUM('ACTIVE','MAINTENANCE','DISABLED') NOT NULL DEFAULT 'ACTIVE',
+  note VARCHAR(255) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT uk_room_code UNIQUE (room_code),
+  CONSTRAINT uk_room_name UNIQUE (room_name),
+  CONSTRAINT ck_room_capacity CHECK (capacity BETWEEN 2 AND 30)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE play_session (
