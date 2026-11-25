@@ -2,6 +2,7 @@ package com.example.scriptbooking.service;
 
 import com.example.scriptbooking.dao.BookingDao;
 import com.example.scriptbooking.dao.OperationLogDao;
+import com.example.scriptbooking.dao.RoomDao;
 import com.example.scriptbooking.dao.ScriptBookDao;
 import com.example.scriptbooking.dao.SessionDao;
 import com.example.scriptbooking.exception.BusinessException;
@@ -22,6 +23,7 @@ public class SessionService {
     private static final Set<String> EDITABLE_STATUSES = Sets.of("DRAFT", "OPEN", "CLOSED", "IN_PROGRESS", "COMPLETED");
     private final SessionDao sessionDao = new SessionDao();
     private final ScriptBookDao scriptDao = new ScriptBookDao();
+    private final RoomDao roomDao = new RoomDao();
     private final BookingDao bookingDao = new BookingDao();
     private final OperationLogDao logDao = new OperationLogDao();
 
@@ -34,18 +36,23 @@ public class SessionService {
         if (session.getCapacity() < script.getMinPlayers() || session.getCapacity() > script.getMaxPlayers()) {
             throw new BusinessException("场次容量必须在剧本人数范围内");
         }
+        PlaySession current = null;
         if (session.getId() != 0) {
-            PlaySession current = sessionDao.findById(session.getId()).orElseThrow(() -> new BusinessException("场次不存在"));
+            current = sessionDao.findById(session.getId()).orElseThrow(() -> new BusinessException("场次不存在"));
             if ("CANCELLED".equals(current.getStatus()) || "COMPLETED".equals(current.getStatus())) {
                 throw new BusinessException("已取消或已结束场次不能修改");
             }
             if (session.getCapacity() < current.getBookedCount()) throw new BusinessException("容量不能小于当前有效预约人数");
             session.setBookedCount(current.getBookedCount());
         }
+        boolean creating = session.getId() == 0;
+        // 房间档案中登记过、且处于检修或停用的房间不允许安排新场次；换房间时同样校验
+        if (creating || !session.getRoomName().equals(current.getRoomName())) {
+            ensureRoomBookable(session.getRoomName());
+        }
         if (sessionDao.roomConflict(session.getId(), session.getRoomName(), session.getStartTime(), session.getEndTime())) {
             throw new BusinessException("该房间在所选时间段已有其他场次");
         }
-        boolean creating = session.getId() == 0;
         if (creating && (session.getSessionCode() == null || session.getSessionCode().trim().isEmpty())) {
             session.setSessionCode(CodeGenerator.sessionCode());
         }
@@ -78,6 +85,13 @@ public class SessionService {
         } catch (SQLException e) {
             throw new BusinessException("取消场次失败", e);
         }
+    }
+
+    /** 房间档案里登记过的房间，只有“可用”状态才能被排期占用。 */
+    private void ensureRoomBookable(String roomName) {
+        roomDao.findByName(roomName).filter(room -> !room.isBookable()).ifPresent(room -> {
+            throw new BusinessException("房间「" + room.getRoomName() + "」当前为" + room.getStatusLabel() + "状态，不能安排场次");
+        });
     }
 
     private void validate(PlaySession session) {
