@@ -2,6 +2,7 @@ package com.example.scriptbooking.action;
 
 import com.example.scriptbooking.dao.ScriptBookDao;
 import com.example.scriptbooking.dao.SessionDao;
+import com.example.scriptbooking.dao.SessionQuery;
 import com.example.scriptbooking.exception.BusinessException;
 import com.example.scriptbooking.model.PlaySession;
 import com.example.scriptbooking.model.ScriptBook;
@@ -38,7 +39,7 @@ public class AdminSessionAction extends BaseAction {
     private List<ScriptBook> scripts;
 
     public String list() {
-        result = sessionDao.findPage(optionalDateParam(date), keyword, status, pageNo(), 10);
+        result = sessionDao.findPage(new SessionQuery(optionalDateParam(date), keyword, status), pageNo(), 10);
         setPageTitle("场次管理");
         return SUCCESS;
     }
@@ -59,21 +60,17 @@ public class AdminSessionAction extends BaseAction {
     }
 
     public String save() throws Exception {
-        PlaySession submitted = null;
+        // 重构前：try 里 fromRequest() 一次，catch 里为了回显又解析一次；
+        // 第二次解析在原字段（如结束时间格式）上同样抛错，结果整张表单被清空。
+        // 重构后：只解析一次，bindForm 边解析边写入实体，失败时已解析的字段仍可回显。
+        PlaySession submitted = new PlaySession();
         try {
-            submitted = fromRequest();
+            bindForm(submitted);
             long savedId = sessionService.save(submitted, currentUser(), clientIp());
             flash("success", "场次保存成功");
             return redirectTo("/admin/sessions/form?id=" + savedId);
         } catch (BusinessException | NumberFormatException e) {
             setError(e instanceof BusinessException ? e.getMessage() : "数字参数格式不正确");
-            if (submitted == null) {
-                try {
-                    submitted = fromRequest();
-                } catch (RuntimeException ignored) {
-                    submitted = new PlaySession();
-                }
-            }
             prepareForm(submitted);
             return INPUT;
         }
@@ -98,8 +95,8 @@ public class AdminSessionAction extends BaseAction {
         setPageTitle(target.getId() == 0 ? "新增场次" : "编辑场次");
     }
 
-    private PlaySession fromRequest() {
-        PlaySession target = new PlaySession();
+    /** 把表单字段逐项写入实体：解析失败的字段抛异常，已写入的字段保留用于页面回显。 */
+    private void bindForm(PlaySession target) {
         if (id != null) {
             target.setId(id);
         }
@@ -113,7 +110,6 @@ public class AdminSessionAction extends BaseAction {
         target.setUnitPrice(unitPrice == null || unitPrice.trim().isEmpty() ? BigDecimal.ZERO : new BigDecimal(unitPrice.trim()));
         target.setStatus(status);
         target.setRemark(remark);
-        return target;
     }
 
     public Object getResult() {

@@ -72,6 +72,14 @@ public final class WebUtil {
         return session == null ? null : (User) session.getAttribute("currentUser");
     }
 
+    /**
+     * 是否已登录。过滤器、拦截器、Action 三处都需要这个判断，
+     * 统一放在这里，避免各处自行取 session 后判断属性名写错。
+     */
+    public static boolean isSignedIn(HttpServletRequest request) {
+        return currentUser(request) != null;
+    }
+
     public static void flash(HttpServletRequest request, String type, String message) {
         request.getSession().setAttribute("flashType", type);
         request.getSession().setAttribute("flashMessage", message);

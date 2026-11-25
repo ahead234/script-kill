@@ -1,6 +1,7 @@
 package com.example.scriptbooking.interceptor;
 
 import com.example.scriptbooking.model.User;
+import com.example.scriptbooking.util.WebUtil;
 import com.opensymphony.xwork2.ActionInvocation;
 import com.opensymphony.xwork2.interceptor.AbstractInterceptor;
 import org.apache.struts2.ServletActionContext;
@@ -37,7 +38,7 @@ public class AuthInterceptor extends AbstractInterceptor {
             return invocation.invoke();
         }
 
-        User user = (User) session.getAttribute("currentUser");
+        User user = WebUtil.currentUser(request);
         if (user == null) {
             return "login";
         }

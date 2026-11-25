@@ -12,8 +12,13 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public class SessionDao {
@@ -22,26 +27,25 @@ public class SessionDao {
             "s.title script_title,s.genre script_genre,s.min_players script_min_players,s.max_players script_max_players " +
             "FROM play_session ps JOIN script_book s ON s.id=ps.script_id ";
 
-    public Page<PlaySession> findPage(LocalDate date, String keyword, String status, int page, int pageSize) {
-        String term = value(keyword);
-        String state = value(status);
+    public Page<PlaySession> findPage(SessionQuery query, int page, int pageSize) {
         // 日期参数必须绑定为 DATE/NULL：绑定空字符串时 MySQL 会报 Incorrect DATE value: ''
         String where = "WHERE (? IS NULL OR DATE(ps.start_time)=?) " +
                 "AND (?='' OR s.title LIKE CONCAT('%',?,'%') OR ps.session_code LIKE CONCAT('%',?,'%')) " +
                 "AND (?='' OR ps.status=?) ";
-        String query = SELECT_COLUMNS + where + "ORDER BY ps.start_time DESC LIMIT ? OFFSET ?";
-        String count = "SELECT COUNT(*) FROM play_session ps JOIN script_book s ON s.id=ps.script_id " + where;
+        String querySql = SELECT_COLUMNS + where + "ORDER BY ps.start_time DESC LIMIT ? OFFSET ?";
+        String countSql = "SELECT COUNT(*) FROM play_session ps JOIN script_book s ON s.id=ps.script_id " + where;
         try (Connection connection = Database.getConnection()) {
             long total;
-            try (PreparedStatement statement = connection.prepareStatement(count)) {
-                bindFilter(statement, date, term, state);
+            try (PreparedStatement statement = connection.prepareStatement(countSql)) {
+                bindFilter(statement, query);
                 try (ResultSet rs = statement.executeQuery()) { rs.next(); total = rs.getLong(1); }
             }
-            java.util.List<PlaySession> sessions = new java.util.ArrayList<>();
-            try (PreparedStatement statement = connection.prepareStatement(query)) {
-                bindFilter(statement, date, term, state);
-                statement.setInt(8, pageSize);
-                statement.setInt(9, (page - 1) * pageSize);
+            List<PlaySession> sessions = new ArrayList<>();
+            try (PreparedStatement statement = connection.prepareStatement(querySql)) {
+                // bindFilter 返回下一个待绑定下标，分页参数紧接在筛选条件之后，不再写死 8、9
+                int next = bindFilter(statement, query);
+                statement.setInt(next, pageSize);
+                statement.setInt(next + 1, (page - 1) * pageSize);
                 try (ResultSet rs = statement.executeQuery()) {
                     while (rs.next()) sessions.add(map(rs));
                 }
@@ -70,10 +74,10 @@ public class SessionDao {
         }
     }
 
-    public java.util.List<PlaySession> findAvailableByScript(long scriptId) {
+    public List<PlaySession> findAvailableByScript(long scriptId) {
         String sql = SELECT_COLUMNS + "WHERE ps.script_id=? AND ps.status='OPEN' AND ps.start_time>NOW() " +
                 "AND ps.booked_count<ps.capacity ORDER BY ps.start_time LIMIT 20";
-        java.util.List<PlaySession> sessions = new java.util.ArrayList<>();
+        List<PlaySession> sessions = new ArrayList<>();
         try (Connection connection = Database.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setLong(1, scriptId);
@@ -86,10 +90,10 @@ public class SessionDao {
         }
     }
 
-    public java.util.List<PlaySession> findUpcoming(int limit) {
+    public List<PlaySession> findUpcoming(int limit) {
         String sql = SELECT_COLUMNS + "WHERE ps.status='OPEN' AND ps.start_time>NOW() AND s.status='ACTIVE' " +
                 "ORDER BY ps.start_time LIMIT ?";
-        java.util.List<PlaySession> sessions = new java.util.ArrayList<>();
+        List<PlaySession> sessions = new ArrayList<>();
         try (Connection connection = Database.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setInt(1, limit);
@@ -115,6 +119,22 @@ public class SessionDao {
             try (ResultSet rs = statement.executeQuery()) { return rs.next(); }
         } catch (SQLException e) {
             throw DbErrors.fail("检查房间占用失败", e);
+        }
+    }
+
+    /**
+     * 统计某房间尚未结束的有效场次数量。
+     * 房间要停用或转检修时，若还有 OPEN/IN_PROGRESS 场次，必须先处理这些排期。
+     */
+    public long countUnfinishedByRoom(String roomName) {
+        if (roomName == null || roomName.trim().isEmpty()) return 0;
+        String sql = "SELECT COUNT(*) FROM play_session WHERE room_name=? AND status IN ('OPEN','IN_PROGRESS') AND end_time>NOW()";
+        try (Connection connection = Database.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, roomName.trim());
+            try (ResultSet rs = statement.executeQuery()) { rs.next(); return rs.getLong(1); }
+        } catch (SQLException e) {
+            throw DbErrors.fail("统计房间排期失败", e);
         }
     }
 
@@ -178,8 +198,8 @@ public class SessionDao {
         }
     }
 
-    public java.util.Map<String, Long> countGroupByStatus() {
-        java.util.Map<String, Long> result = new java.util.LinkedHashMap<>();
+    public Map<String, Long> countGroupByStatus() {
+        Map<String, Long> result = new LinkedHashMap<>();
         try (Connection connection = Database.getConnection();
              PreparedStatement statement = connection.prepareStatement(
                      "SELECT status, COUNT(*) FROM play_session GROUP BY status");
@@ -191,16 +211,23 @@ public class SessionDao {
         }
     }
 
-    private void bindFilter(PreparedStatement statement, LocalDate date, String term, String state) throws SQLException {
-        if (date == null) {
-            statement.setNull(1, java.sql.Types.DATE);
-            statement.setNull(2, java.sql.Types.DATE);
+    /** 绑定筛选条件，返回下一个可用占位符下标（8）。 */
+    private int bindFilter(PreparedStatement statement, SessionQuery query) throws SQLException {
+        int index = 1;
+        if (query.getDate() == null) {
+            statement.setNull(index++, Types.DATE);
+            statement.setNull(index++, Types.DATE);
         } else {
-            statement.setDate(1, java.sql.Date.valueOf(date));
-            statement.setDate(2, java.sql.Date.valueOf(date));
+            java.sql.Date date = java.sql.Date.valueOf(query.getDate());
+            statement.setDate(index++, date);
+            statement.setDate(index++, date);
         }
-        statement.setString(3, term); statement.setString(4, term); statement.setString(5, term);
-        statement.setString(6, state); statement.setString(7, state);
+        statement.setString(index++, query.getKeyword());
+        statement.setString(index++, query.getKeyword());
+        statement.setString(index++, query.getKeyword());
+        statement.setString(index++, query.getStatus());
+        statement.setString(index++, query.getStatus());
+        return index;
     }
 
     private void bindWrite(PreparedStatement statement, PlaySession session) throws SQLException {
@@ -223,6 +250,4 @@ public class SessionDao {
         session.setStatus(rs.getString("status")); session.setRemark(rs.getString("remark"));
         return session;
     }
-
-    private String value(String input) { return input == null ? "" : input.trim(); }
 }

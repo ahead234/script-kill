@@ -8,8 +8,9 @@ import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import java.io.IOException;
+
+import com.example.scriptbooking.util.WebUtil;
 
 /**
  * HTTP 层通用处理：请求编码、安全响应头，以及 /uploads 下上传封面的登录保护。
@@ -42,17 +43,18 @@ public class SecurityFilter implements Filter {
             response.setCharacterEncoding("UTF-8");
         }
 
-        if (path.startsWith("/uploads/") && !signedIn(request)) {
+        if (path.startsWith("/uploads/") && !WebUtil.isSignedIn(request)) {
+            response.sendRedirect(request.getContextPath() + "/login");
+            return;
+        }
+
+        // 实验三对照页直接由 JSP 渲染，不经过 Struts 拦截器，所以在这里补一次登录检查
+        if (path.startsWith("/lab3/") && !WebUtil.isSignedIn(request)) {
             response.sendRedirect(request.getContextPath() + "/login");
             return;
         }
 
         chain.doFilter(request, response);
-    }
-
-    private boolean signedIn(HttpServletRequest request) {
-        HttpSession session = request.getSession(false);
-        return session != null && session.getAttribute("currentUser") != null;
     }
 
     @Override
