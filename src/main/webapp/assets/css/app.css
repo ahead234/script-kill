@@ -103,7 +103,7 @@ button { cursor: pointer; }
 .badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 3px 9px; font-size: 11px; font-weight: 700; white-space: nowrap; background: #edf0ee; color: #56625e; }
 .badge-ACTIVE, .badge-OPEN, .badge-CONFIRMED, .badge-PUBLISHED, .badge-COMPLETED { color: #24604f; background: #e2f1eb; }
 .badge-DRAFT, .badge-PENDING, .badge-VIEWER { color: #4d6370; background: #e7eef2; }
-.badge-CLOSED, .badge-IN_PROGRESS, .badge-CHECKED_IN { color: #76571c; background: #f8edcf; }
+.badge-CLOSED, .badge-IN_PROGRESS, .badge-CHECKED_IN, .badge-MAINTENANCE { color: #76571c; background: #f8edcf; }
 .badge-INACTIVE, .badge-DISABLED, .badge-CANCELLED, .badge-CANCELLED_BY_PLAYER, .badge-CANCELLED_BY_STORE, .badge-HIDDEN, .badge-NO_SHOW { color: #8b3e3e; background: #f7e4e4; }
 
 /*

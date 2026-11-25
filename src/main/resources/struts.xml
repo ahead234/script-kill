@@ -215,6 +215,12 @@
             <allowed-methods>list</allowed-methods>
         </action>
 
+        <action name="rooms" class="com.example.scriptbooking.action.AdminRoomAction" method="list">
+            <interceptor-ref name="managementStack"/>
+            <result name="success">/WEB-INF/views/admin/rooms.jsp</result>
+            <allowed-methods>list</allowed-methods>
+        </action>
+
         <action name="sessions" class="com.example.scriptbooking.action.AdminSessionAction" method="list">
             <interceptor-ref name="managerStack"/>
             <result name="success">/WEB-INF/views/admin/sessions.jsp</result>
@@ -258,6 +264,25 @@
         </action>
 
         <action name="status" class="com.example.scriptbooking.action.AdminScriptAction" method="changeStatus">
+            <allowed-methods>changeStatus</allowed-methods>
+        </action>
+    </package>
+
+    <!-- 后台：房间维护 -->
+    <package name="adminRooms" namespace="/admin/rooms" extends="base">
+        <default-interceptor-ref name="managerStack"/>
+
+        <action name="form" class="com.example.scriptbooking.action.AdminRoomAction" method="showForm">
+            <result name="success">/WEB-INF/views/admin/room-form.jsp</result>
+            <allowed-methods>showForm</allowed-methods>
+        </action>
+
+        <action name="save" class="com.example.scriptbooking.action.AdminRoomAction" method="save">
+            <result name="input">/WEB-INF/views/admin/room-form.jsp</result>
+            <allowed-methods>save</allowed-methods>
+        </action>
+
+        <action name="status" class="com.example.scriptbooking.action.AdminRoomAction" method="changeStatus">
             <allowed-methods>changeStatus</allowed-methods>
         </action>
     </package>

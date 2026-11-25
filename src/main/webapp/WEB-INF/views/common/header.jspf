@@ -47,6 +47,10 @@
                             <svg class="side-ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 3.5h5a2 2 0 0 1 2 2v11a2 2 0 0 0-2-2H4z"/><path d="M16 3.5h-5a2 2 0 0 0-2 2v11a2 2 0 0 1 2-2h5z"/></svg>
                             <span>剧本管理</span>
                         </a>
+                        <a class="side-link ${fn:startsWith(adminPath, '/admin/rooms') ? 'active' : ''}" href="${ctx}/admin/rooms">
+                            <svg class="side-ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 17V4.5A1.5 1.5 0 0 1 5.5 3h9A1.5 1.5 0 0 1 16 4.5V17"/><path d="M2.5 17h15M12.5 10h.01"/></svg>
+                            <span>房间管理</span>
+                        </a>
                         <a class="side-link ${fn:startsWith(adminPath, '/admin/sessions') ? 'active' : ''}" href="${ctx}/admin/sessions">
                             <svg class="side-ico" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M10 6v4.3l3 1.8"/></svg>
                             <span>场次排期</span>
