@@ -1,246 +1,277 @@
-# 剧本杀预约与场次管理系统
 
-基于 Java 8、Struts 2.5、JSP 2.3、JSTL、JDBC 和 MySQL 8 的 Java Web MVC 教学项目。请求统一由 Struts Action 处理，视图跳转、鉴权与异常处理均通过 `struts.xml` 配置完成，以 WAR 形式部署到 Tomcat 9。
+# 部署文档
 
-## 已实现功能
+本项目为「剧本杀预约与场次管理系统」，基于 Java 8 + Struts 2 + JSP + MySQL 8 构建，打包为 WAR 部署到 Apache Tomcat 9。本文档覆盖从环境准备到部署验证的完整流程。
 
-- 登录、退出、BCrypt 密码校验、Session ID 轮换。
-- `ADMIN`、`MANAGER`、`STAFF`、`PLAYER`、`VIEWER` 服务端权限控制。
-- 剧本分页、筛选、新增、编辑；店长新增剧本进入待审核（PENDING），管理员审核通过（ACTIVE）后前台才可见。
-- 剧本封面上传（`/uploads/covers/`）与内置静态封面（`/assets/img/`）。
-- 场次排期、房间冲突、容量限制、开放和事务化取消。
-- 玩家预约、本人查询和取消；工作人员到店、完成、未到店登记。
-- `SELECT ... FOR UPDATE` 行锁下的并发容量控制及 `booked_count` 对账 SQL。
-- 已完成预约评价、待审核修改、发布/隐藏与公开评分统计。
-- 用户启停、管理工作台、关键操作日志。
-- 前台首页：轮播、筛选、自适应卡片栅格、剧本详情与预约。
-- 管理后台：左侧固定导航 + 右侧主区域，报表页使用 ECharts 呈现四类图表。
-- CSRF、PreparedStatement、安全输出、CSP 与统一错误页。
-- Struts 2.5：Action 统一处理请求、`struts.xml` 配置命名空间与结果跳转、拦截器完成登录/角色/CSRF 校验、全局异常映射渲染统一错误页。
+## 1. 环境要求
 
-## 环境要求
+| 组件 | 版本要求 | 说明 |
+|---|---|---|
+| JDK | **8**（必需） | `pom.xml` 编译级别为 1.8，产物为 Java 8 字节码（major version 52）。更高版本 JDK 也能构建，但运行环境见下 |
+| Maven | 3.8+ | 使用 compiler 3.11.0 / surefire 3.2.5 / war 3.4.0 插件 |
+| MySQL | **8.0+** | 数据库使用 `utf8mb4` 与 `utf8mb4_0900_ai_ci` 排序规则，该排序规则仅 MySQL 8.0 支持 |
+| Tomcat | **9.x**（必需） | 项目使用 `javax.servlet.*`（Servlet 4.0 / JSP 2.3），**不兼容 Tomcat 10+**（Tomcat 10 改用 `jakarta.*`，部署会直接报 `ClassNotFoundException`） |
 
-- JDK 8（推荐；已实测 JDK 8 与 JDK 24 均可构建，产物字节码均为 Java 8）
-- Maven 3.8+
-- MySQL 8.0+
-- Apache Tomcat 9.x（建议运行在 JDK 8 上）
+> 注意：不要在 Tomcat 10 及以上版本部署本应用；如需更换容器，必须选择提供 `javax.servlet` API 的版本。
 
-不能部署到 Tomcat 10+，因为 Tomcat 10 使用 `jakarta.servlet.*`，与本项目的 `javax.servlet.*` 不兼容。
+## 2. 获取代码与项目结构
+```
+script_kil/
+├── pom.xml                     # Maven 构建配置（war 包，finalName=script-booking-system）
+├── sql/                        # 数据库脚本（见第 3 节）
+├── docs/                       # 设计与测试文档
+└── src/main/
+    ├── java/com/example/scriptbooking/   # Action / Service / DAO / Filter / Util
+    ├── resources/
+    │   ├── struts.xml          # Struts 配置（devMode=false，上传上限 2MB）
+    │   └── db.properties       # 数据库连接配置（可被环境变量覆盖）
+    └── webapp/
+        ├── assets/img/         # 内置封面与轮播图（随 WAR 打包，永久保留）
+        └── WEB-INF/web.xml     # SecurityFilter + Struts2 过滤器、错误页、会话配置
+```
 
-## 配置数据库连接
+## 3. 数据库初始化
 
-先编辑 `src/main/resources/db.properties`，填入本机真实密码：
+### 3.1 全新安装
 
-```properties
+按顺序执行以下脚本（`sql/` 目录）：
+
+| 顺序 | 脚本 | 作用 |
+|---|---|---|
+| 1 | `schema.sql` | 创建数据库 `script_booking`（utf8mb4）及全部表。**会先 DROP 已有表**，请勿对已有数据的库直接执行 |
+| 2 | `seed.sql` | 导入演示数据：5 个角色、8 个演示账号、11 个剧本与示例场次。**可重复导入**（先清空再插入） |
+
+Windows PowerShell 下推荐使用 `source` 方式导入（避免 `<` 重定向的编码问题）：
+
+```powershell
+mysql -uroot -p --default-character-set=utf8mb4 -e "source D:/assignments/JuniorYearSemester1/javaEE/script_kill/script_kil/sql/schema.sql"
+mysql -uroot -p --default-character-set=utf8mb4 -e "source D:/assignments/JuniorYearSemester1/javaEE/script_kill/script_kil/sql/seed.sql"
+```
+
+导入完成后验证：
+
+```
+mysql -uroot -p -e "USE script_booking; SELECT id, username, status FROM sys_user ORDER BY id; SELECT COUNT(*) FROM script_book;"
+```
+
+### 3.2 已有数据库的升级
+
+对已经导入过旧版本数据的库，按需执行增量脚本：
+
+| 脚本 | 用途 |
+| --- | --- |
+| `upgrade-user-email.sql` | 用户邮箱字段相关升级 |
+| `upgrade-register-phone.sql` | 注册手机号字段相关升级 |
+| `upgrade-cover-pending.sql` | 封面审核状态相关升级 |
+| `upgrade-script-covers.sql` | 将 1~5、12 号剧本封面切换到 `assets/img` 下的永久图片（幂等，可重复执行） |
+| `reset_passwords.sql` | 将全部演示账号密码重置为 `123456`（仅本地演示用） |
+
+### 3.3 演示账号
+
+`seed.sql` 导入后，以下账号密码均为 **`123456`**（BCrypt 存储），仅用于本地教学演示：
+
+| 账号 | 角色 | 用途 |
+| --- | --- | --- |
+| `admin` | 系统管理员 | 后台全部功能 |
+| `manager` | 店长 | 剧本/场次/预约/评价管理 |
+| `staff` | 店员 | 店员操作 |
+| `player`  | 玩家 | 前台浏览、预约、评价 |
+| `viewer` | 只读用户 | 只读验证 |
+| `disabled` | 玩家（已禁用） | 验证禁用账号无法登录 |
+
+> 
+> 生产环境部署后**必须**修改或删除全部演示账号，见第 9 节。
+
+## 4. 应用配置
+
+### 4.1 数据库连接
+
+默认配置在 `src/main/resources/db.properties`，随 WAR 打包进 `WEB-INF/classes`：
+
+```
 db.url=jdbc:mysql://localhost:3306/script_booking?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
 db.username=root
-db.password=你的密码
+db.password=z123456
 db.driver=com.mysql.cj.jdbc.Driver
 ```
 
-不要提交真实生产密码。也可使用环境变量 `DB_URL`、`DB_USERNAME`、`DB_PASSWORD`、`DB_DRIVER` 覆盖文件配置（需重启 Tomcat），或通过 JVM 参数 `-Dscriptbooking.config=D:\secure\db.properties` 指定外部文件。
+> 
+> 仓库中的密码为本地演示值，发布前请替换为目标环境的真实凭据。
 
-## 初始化数据库
+### 4.2 覆盖配置（推荐生产使用）
 
-PowerShell 不支持 `<` 输入重定向，请使用 `source` 方式（路径替换为实际路径）：
+应用读取配置的优先级为：**环境变量 > 外部配置文件 > db.properties > 代码内置默认值**。
 
-```powershell
-mysql -uroot -p -e "source D:/assignments/JuniorYearSemester1/javaEE/script_kill/script_kil/sql/schema.sql"
-mysql -uroot -p -e "source D:/assignments/JuniorYearSemester1/javaEE/script_kill/script_kil/sql/seed.sql"
-mysql -uroot -p -e "source D:/assignments/JuniorYearSemester1/javaEE/script_kill/script_kil/sql/check_booking_capacity.sql"
+**方式一：环境变量**（推荐，适合 Tomcat 服务方式启动）：
+
+| 环境变量 | 对应属性 | 默认值 |
+| --- | --- | --- |
+| `DB_URL` | `db.url` | `jdbc:mysql://localhost:3306/script_booking?...`（Asia/Shanghai、UTF-8） |
+| `DB_USERNAME` | `db.username` | `root` |
+| `DB_PASSWORD` | `db.password` | 空 |
+| `DB_DRIVER` | `db.driver` | `com.mysql.cj.jdbc.Driver` |
+
+Windows 设置示例（启动 Tomcat 前执行）：
+
+```
+$env:DB_URL = "jdbc:mysql://localhost:3306/script_booking?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true"
+$env:DB_USERNAME = "root"
+$env:DB_PASSWORD = "你的真实密码"
 ```
 
-也可以在 CMD（命令提示符）中使用重定向：
+**方式二：外部配置文件**：通过 JVM 系统属性指定完整路径，适合不想改环境变量的场景：
 
-```bat
-mysql -uroot -p < sql\schema.sql
-mysql -uroot -p script_booking < sql\seed.sql
-mysql -uroot -p script_booking < sql\check_booking_capacity.sql
+```
+-Dscriptbooking.config=D:/config/scriptbooking.properties
 ```
 
-`schema.sql` 会创建并使用 `script_booking` 数据库。执行 `check_booking_capacity.sql` 时结果应为空。
+外部文件格式与 `db.properties` 相同（`db.url` / `db.username` / `db.password` / `db.driver`）。
 
-`seed.sql` 可重复执行：脚本开头会先清空演示数据再插入，因此在已有数据的库上直接重跑不会报主键冲突。但它要求表已存在——如果从未建库，请先执行 `schema.sql`。
+### 4.3 其他运行时参数
 
-## 剧本封面与图片字段
+| 配置项 | 位置 | 当前值 | 说明 |
+| --- | --- | --- | --- |
+| `struts.devMode` | `struts.xml` | `false` | 生产必须保持关闭 |
+| `struts.fileUpload.maximumSize` | `struts.xml` | `2097152` | 封面上传上限 2MB，支持 jpg/jpeg/png/webp/gif/svg |
+| 会话超时 | `web.xml` | 30 分钟 | Cookie 为 HttpOnly，tracking-mode 为 COOKIE |
+| 时区 | JDBC URL | `Asia/Shanghai` | 生产环境应统一 JVM、Tomcat、MySQL 三者时区 |
 
-图片字段位于 `script_book` 表的 `cover_path` 列（`VARCHAR(255)`，建表脚本 `schema.sql` 中 `description` 之后），存储站点内相对路径，浏览器通过 `<img src>` 直接访问：
+## 5. 构建打包
 
-- `/assets/img/cover-1.svg` ~ `cover-4.svg`：随 WAR 打包的内置占位封面。
-- `/assets/img/cover-1.jpg`、`cover-2.jpg`、`cover-12.jpg`：已放入 `src/main/webapp/assets/img/` 的实拍/正式封面，随 WAR 打包，重新部署不会丢失，前台无需登录即可访问。
-- `/assets/img/cover-3.png`、`cover-4.png`、`cover-5.png`：3~5 号剧本的新封面，同样随 WAR 打包，重新部署不会丢失。
-- `/uploads/covers/xxx.jpg`：后台"剧本管理 → 编辑剧本"上传的封面（支持 jpg/jpeg/png/webp/gif/svg，≤2MB），保存在部署目录的 `uploads/covers/`，重新部署会丢失且仅登录用户可访问。
+在项目根目录执行：
 
-已有数据库可执行 `sql/upgrade-script-covers.sql`，把 1~5、12 号剧本的封面切换到 `assets/img` 下的永久图片。
-
-老库若没有 `cover_path` 列或旧的 `status` 枚举，执行迁移脚本：
-
-```powershell
-mysql -uroot -p --default-character-set=utf8mb4 -e "source D:/assignments/JuniorYearSemester1/javaEE/script_kill/script_kil/sql/upgrade-cover-pending.sql"
+```
+mvn clean package
 ```
 
-该脚本会补齐 `cover_path` 列、把 `status` 扩展为 `PENDING/ACTIVE/INACTIVE`（默认 `PENDING`），并把存量剧本置为 `ACTIVE`。若提示 `Duplicate column name` 说明列已存在，跳过该条即可。
+- 产物：`target/script-booking-system.war`（由 `pom.xml` 的 `finalName` 决定）。
+- 建议打包前先跑测试：
 
-### 剧本审核流程
-
-1. 店长（MANAGER）在「剧本管理 → 新增剧本」提交剧本，状态自动为 **待审核**，前台不可见。
-2. 管理员（ADMIN）在「剧本管理」列表对待审核剧本点击 **通过**（上架）或 **驳回**（下架）；上下架与状态变更也仅限管理员。
-3. 状态为 **已上架（ACTIVE）** 的剧本才会出现在前台「发现剧本」与「下一场故事」。
-4. 店长编辑剧本不会改变审核/上下架状态；店长可通过"编辑剧本"页面的上传控件更换封面图片。
-
-注意：上传的封面保存在部署目录（如 `webapps/script-booking-system/uploads/covers/`），重新部署 WAR 会覆盖该目录，请提前备份 `uploads/covers/` 并在部署后拷回；随包的内置封面（`src/main/webapp/assets/img/`）不受影响。若希望某张封面永久保留，请把文件放到 `src/main/webapp/assets/img/`，并把 `script_book.cover_path` 改为对应的 `/assets/img/xxx` 路径。
-
-## 构建与部署
-
-建议将 `JAVA_HOME` 指向 JDK 8 后构建：
-
-```powershell
-# Windows PowerShell：指向本机 JDK 8 安装目录
-$env:JAVA_HOME = 'D:\appdata\jdk'
-$env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
-
+```
 mvn clean test
-mvn clean package
 ```
 
-若构建时报 `Could not reserve enough space for object heap`（常见于同时运行 Tomcat、可用内存不足），先停止 Tomcat，或限制构建堆：
+- 内存不足时（构建机内存较小），先设置：
 
-```powershell
-$env:MAVEN_OPTS = '-Xmx512m'
-mvn clean package
+```
+$env:MAVEN_OPTS = "-Xmx512m"
 ```
 
-## 页面布局约定
+> 
+> 本项目 JDK 8 适配说明：编译使用独立属性 `java.version=1.8`，不受本机 Maven `settings.xml` 中全局 `maven.compiler.source/target` 影响。
 
-本项目包含两套独立页面，视觉与布局各自成体系。
+## 6. 部署到 Tomcat 9
 
-### 普通用户前台（上下流式）
+### 6.1 部署 WAR
 
-- 外层为流式布局（`.app-shell` 使用 `display: block`），内容自上而下排列。
-- 顶部导航使用 flex：左侧为文字标识「雾灯剧场」，中间为「发现剧本 / 下一场故事」，右侧为登录或账号入口。
-- 导航下方为轮播组件（3 张图片自动轮播，原生 JS 实现，鼠标悬停暂停，可点击圆点切换）。
-- 轮播下方依次为标题文案、筛选区（剧本名称、题材、查找）与剧本卡片区域。
-- 卡片区使用网格布局固定为一行四列，列宽和 18px 间距全程统一；最后一行不足四张时卡片保持原有宽度、剩余位置留空，不拉伸卡片、不自动铺满容器。单张卡片自上而下为：封面图片、剧本名称、人数、题材、难易程度、一句话介绍；左下角为评分，右下角为「查看场次」按钮，点击进入剧本详情页并可预约。
+```
+# 1. 停止 Tomcat
+# 2. 清理旧部署（假设 Tomcat 位于 C:\apache-tomcat-9.0.x）
+Remove-Item -Recurse -Force C:\apache-tomcat-9.0.x\webapps\script-booking-system -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force C:\apache-tomcat-9.0.x\work\Catalina\localhost\script-booking-system -ErrorAction SilentlyContinue
 
-### 管理员后台（左右分栏）
+# 3. 拷贝 WAR
+Copy-Item target\script-booking-system.war C:\apache-tomcat-9.0.x\webapps\
 
-- 管理端不再显示前台顶部导航：左侧为整屏固定的深绿导航栏（品牌、按角色渲染的菜单、底部账号信息与「退出登录」），右侧为内容区（`.admin-page .admin-main` 预留侧栏宽度）。
-- 侧栏菜单含用户管理、剧本管理、场次排期、预约管理、评价管理、操作日志与数据报表，按当前角色显示，当前项左侧高亮并在移动端折叠为横向导航。
-- 内容区顶部为标题条：左侧标题与说明，右侧为报表操作区（开始日期、结束日期与刷新按钮）；下方卡片使用 Grid 自适应排列。
-- 报表页依次为 4 张指标卡、「预约统计」（状态分布环图 + 预约趋势柱图）与「运营明细」（热门剧本 + 审核 / 排期状态对比）。
-- 日期区间通过 `/admin/api/stats?from=YYYY-MM-DD&to=YYYY-MM-DD` 只作用于预约趋势，未选择时默认近 7 日；指标卡展示当前快照。页面通过外部 `admin-charts.js` 请求数据，不写内联脚本，保持 CSP `script-src 'self'`。
-
-### 前端资源与图表约束
-
-- 图表使用 ECharts 5.5.1，文件位于 `assets/vendor/echarts.min.js`，本地引入不依赖外网；报表数据来自 `/admin/api/stats`。
-- 未引入 Element Plus / Ant Design Vue：项目 CSP 为 `script-src 'self'` 且没有前端构建流程，Vue 运行时模板编译需要 `unsafe-eval`、组件库大量依赖内联样式，会破坏现有安全策略。交互改用原生 JS 实现，样式也更贴合"克制、无多余装饰"的要求。
-- 图表样式约定：直角柱体、细环、细网格线，不使用渐变、圆角大色块、阴影特效等多余装饰，优先保证数据对比清晰。
-
-构建产物为 `target/script-booking-system.war`。重新部署时必须清掉旧解压目录与 JSP 编译缓存，否则会出现"页面是新的但样式/图片 404"的现象：
-
-```powershell
-# 1) 停止 Tomcat
-# 2) 删除旧部署与缓存（路径按实际安装位置调整）
-Remove-Item -Recurse -Force <tomcat>\webapps\script-booking-system
-Remove-Item -Recurse -Force <tomcat>\work\Catalina\localhost\script-booking-system
-# 3) 拷入新的 target\script-booking-system.war，再启动 Tomcat
-# 4) 验证静态资源可访问（应返回 CSS 文本而不是 404）：
-#    http://localhost:8080/script-booking-system/assets/css/front.css
+# 4. 启动 Tomcat
+C:\apache-tomcat-9.0.x\bin\startup.bat
 ```
 
-启动后访问：
+启动后 Tomcat 会将 WAR 解压到 `webapps/script-booking-system/`，访问上下文为 `/script-booking-system`。
 
-```text
-http://localhost:8080/script-booking-system/
+> 
+> **重要**：第 2 步的清理不可省略。`work` 下的 JSP 编译缓存不清理时，热更新页面可能出现旧内容；`uploads/covers/` 目录位于旧部署目录内，删除该目录会同时清掉后台上传的封面（见第 8 节）。如需保留上传封面，请先备份 `webapps/script-booking-system/uploads/` 再删除，部署后还原。
+
+### 6.2 IDE 部署（IntelliJ IDEA）
+
+使用 IDEA 的 Tomcat 运行配置（exploded 部署）时，注意：
+
+- Application context 建议设置为 `/script-booking-system`；
+- IDEA 托管的 Tomcat 实例位于独立目录（如 `D:\IDEA_Data\system\tomcat\<id>`），上传文件保存在该实例的部署目录下，不在 Tomcat 安装目录。
+
+## 7. 部署后验证
+
+按以下清单逐项确认：
+
+1. **首页跳转**：浏览器访问 `[http://localhost:8080/script-booking-system/](http://localhost:8080/script-booking-system/)`，应自动重定向到 `/scripts` 剧本列表。
+2. **静态资源**：检查封面与轮播图可匿名访问，返回 200：
+
+```
+(Invoke-WebRequest "[http://localhost:8080/script-booking-system/assets/img/cover-1.jpg](http://localhost:8080/script-booking-system/assets/img/cover-1.jpg)").StatusCode   # 期望 200
+(Invoke-WebRequest "[http://localhost:8080/script-booking-system/assets/img/banner-1.jpg](http://localhost:8080/script-booking-system/assets/img/banner-1.jpg)").StatusCode  # 期望 200
 ```
 
-若在 IDE 中部署 exploded artifact，请把 Application Context 设置为 `/script-booking-system`。
+3. **登录**：使用 `admin / 123456` 登录，进入后台首页；ECharts 统计图表应正常渲染（图表库为本地的 `assets/vendor/echarts.min.js`，无需外网）。
+4. **角色验证**：分别用 `manager`、`player` 登录，确认菜单与权限符合角色；`disabled` 账号应无法登录。
+5. **数据库连通**：前台剧本列表能显示 `seed.sql` 中的 11 个剧本，封面图片正常显示。
+6. **错误页**：访问不存在的路径（如 `/script-booking-system/xxx`）应显示自定义 404 页，而非堆栈信息。
+7. **容量对账（可选）**：执行 `sql/check_booking_capacity.sql`，确认 `booked_count` 位于 0 与 `capacity` 之间。
 
-### JDK 8 适配说明
+## 8. 图片资源与持久化说明
 
-- `pom.xml` 使用自定义属性 `java.version`（值为 `1.8`）配置 `maven-compiler-plugin` 的 `source/target`，不使用 `maven.compiler.release`，保证 JDK 8 可以编译。
-- 代码不使用 Java 9+ API：`Set.of(...)` 已替换为 `com.example.scriptbooking.util.Sets.of(...)`，`String.isBlank()` 已替换为 `trim().isEmpty()`。
-- MySQL Connector/J 固定为 `8.0.33`，兼容 JDK 8 运行时。
-- 若本机 Maven 全局 `conf/settings.xml` 注入了 `maven.compiler.source/target`，本项目使用独立的 `java.version` 属性，不受其覆盖。
-- 构建日志显示 `javac [debug target 1.8]`；可用 `javap -verbose` 确认 `major version: 52`。
+| 路径 | 存放位置 | 是否随 WAR 打包 | 重新部署后 | 访问控制 |
+| --- | --- | --- | --- | --- |
+| `/assets/img/...` | `src/main/webapp/assets/img/` | **是** | **永久保留** | 匿名可访问 |
+| `/uploads/covers/...` | Tomcat 部署目录 | 否（运行时上传生成） | **会丢失** | 仅登录用户可访问 |
 
-### 常见启动问题
+- 后台「剧本管理 → 编辑剧本」上传的封面写入部署目录的 `uploads/covers/`（文件名 `script-` + 随机 12 字符 + 扩展名），数据库 `cover_path` 记录为 `/uploads/covers/xxx.jpg`。
+- 因此**重新部署前必须备份 `uploads/` 目录**（见 6.1）；或如本项目做法，将正式封面放入 `webapp/assets/img/` 并通过 `sql/upgrade-script-covers.sql` 把数据库指向永久路径。
 
-| 页面提示 | 原因 | 处理 |
-|---|---|---|
-| 数据库连接失败：账号或密码错误（Access denied） | `db.password` 与实际不符 | 填写正确密码，或设置环境变量 `DB_PASSWORD` 后重启 Tomcat |
-| 数据库连接失败：数据库不存在 | 未执行 `sql/schema.sql` | 按上文导入建库脚本 |
-| 查询或保存失败：数据表不存在 | 未建表或未导入演示数据 | 执行 `sql/schema.sql` 与 `sql/seed.sql` |
-| 无法连接 MySQL 服务 | 服务未启动或端口不一致 | 启动 MySQL 服务，确认端口为 3306 |
-| 认证需要公钥检索 | 账号使用 `caching_sha2_password` 且配置不完整 | 确认 URL 含 `allowPublicKeyRetrieval=true` |
+## 9. 安全检查清单
 
-页面只显示错误类别与处理建议；SQL、堆栈和服务器路径只写入 Tomcat 日志（`logs/catalina.out`、`logs/localhost.<日期>.log`）。
+- 修改或删除全部演示账号（`admin`、`manager`、`staff`、`player*`、`viewer`、`disabled`）。
+- 替换 `db.properties` 中的演示密码，或通过环境变量注入真实凭据；不要将真实密码提交到代码仓库。
+- 数据库账号遵循最小权限：应用账号仅授予 `script_booking` 库的 SELECT/INSERT/UPDATE/DELETE，不使用 root。
+- 确认 `struts.devMode=false`（默认已关闭）。
+- 统一 JVM、Tomcat、MySQL 时区为 `Asia/Shanghai`。
+- HTTPS：生产环境建议在 Tomcat 配置 TLS 或置于反向代理之后。
+- MySQL 8 使用 `caching_sha2_password` 时，JDBC URL 需保留 `allowPublicKeyRetrieval=true`（默认配置已包含）。
 
-### 中文乱码排查
+## 10. 常见问题排查
 
-| 现象 | 原因 | 处理 |
-|---|---|---|
-| 页面固定文案乱码（如“欢迎回来”变成问号或方块） | JSP 源文件被 Tomcat 按 ISO-8859-1 读取 | 已在 `web.xml` 的 `jsp-config` 中统一 `page-encoding=UTF-8`；重启 Tomcat 并删除 `work/Catalina/localhost/script-booking-system` 让其重新编译 JSP |
-| 只有数据库内容乱码（剧本名、用户名等） | 导入 SQL 时客户端字符集不是 UTF-8（Windows 控制台常见） | 用 `mysql -uroot -p --default-character-set=utf8mb4 -e "source <路径>/sql/seed.sql"` 重新导入 |
-| Tomcat 控制台日志乱码 | 控制台编码与日志编码不一致 | 将 Tomcat `conf/logging.properties` 中 `java.util.logging.ConsoleHandler.encoding` 改为 `GBK` |
-| 提交表单后中文变问号 | 请求体编码未生效 | `SecurityFilter` 已对所有请求设置 `request.setCharacterEncoding("UTF-8")`，确认过滤器未被绕过 |
+**Q1：启动后报数据库连接失败**
 
-编码要点：`web.xml` 中 `jsp-config` 统一 JSP 源文件编码与默认响应编码；`SecurityFilter` 统一请求与响应编码；`db.properties` 的 `db.url` 含 `useUnicode=true&characterEncoding=UTF-8`；建库脚本使用 `utf8mb4` 并在开头执行 `SET NAMES utf8mb4`。
+- 确认 MySQL 已启动、库名为 `script_booking`、账号密码正确；
+- 查看异常提示中的 `DbErrors.describe` 输出，区分「未知库」「拒绝访问」「连接被拒」等场景；
+- 若用了环境变量/外部配置，确认优先级与取值（环境变量 > 外部文件 > db.properties）。
 
-修改 `src/main/resources/db.properties` 后需要重新 `mvn package` 并重新部署；也可直接编辑 Tomcat 已解压目录 `webapps/script-booking-system/WEB-INF/classes/db.properties`，然后重启 Tomcat。
+**Q2：Tomcat 10 部署后大量 `ClassNotFoundException: javax.servlet.*`**
 
-## 演示账号
+- 本项目仅兼容 Tomcat 9.x（`javax.servlet`），请换用 Tomcat 9。
 
-种子数据中的联系人均为虚构信息。所有演示账号初始密码均为 `123456`，仅限本地教学使用。
+**Q3：页面中文乱码**
 
-若已经导入过旧版种子数据（旧密码为 `password`），无需重建库，单独执行 `sql/reset_passwords.sql` 即可把全部账号密码重置为 `123456`。
+- 确认导入 SQL 时使用了 `--default-character-set=utf8mb4`；
+- 确认数据库与表为 utf8mb4；JDBC URL 保留 `useUnicode=true&characterEncoding=UTF-8`；
+- `web.xml` 的 `jsp-config` 已统一 JSP 编码为 UTF-8，勿改动。
 
-| 账号 | 角色 | 入口 |
-|---|---|---|
-| `admin` | ADMIN | 全部管理功能 |
-| `manager` | MANAGER | 剧本、场次、预约、评价、日志 |
-| `staff` | STAFF | 预约接待与状态登记 |
-| `player` | PLAYER | 浏览、预约、取消、评价 |
-| `viewer` | VIEWER | 管理工作台只读概览 |
-| `player2` | PLAYER | 第二个玩家，用于演示多用户预约与评价 |
-| `player3` | PLAYER | 第三个玩家，用于演示到店与评价审核 |
-| `disabled` | PLAYER / DISABLED | 用于验证禁用用户不能登录 |
+**Q4：JSP 改动后页面仍是旧内容**
 
-首次部署后应立即修改或删除演示账号。
+- 删除 `work/Catalina/localhost/<context>/` 缓存目录后重启 Tomcat（见 6.1）。
 
-## 工程结构
+**Q5：静态资源 / 封面 404**
 
-```text
-src/main/java/com/example/scriptbooking/
-├── action/       Struts Action：请求参数绑定、调用服务层、返回 result
-├── interceptor/  Struts 拦截器：登录、角色与 CSRF 校验
-├── service/      校验、状态机与事务
-├── dao/          PreparedStatement 与结果映射
-├── model/        JavaBean 业务模型
-├── filter/       请求编码、安全响应头、上传目录访问控制
-├── util/         JDBC、分页、参数校验、编号生成、JDK 8 兼容工具
-└── exception/    业务异常
-src/main/resources/struts.xml   Struts 命名空间、Action、结果与拦截器栈
-src/main/webapp/WEB-INF/views/  JSP 视图
-sql/                           建表、演示数据、容量对账
-docs/                          设计、路由、调研、测试和限制
+- `assets/` 与 `uploads/` 路径由 `web.xml` 中 Struts 过滤器的 `excludePattern` 放行，勿改；
+- `/uploads/` 需登录才能访问（`SecurityFilter` 控制），匿名访问返回 403 属预期行为；
+- 检查 `cover_path` 数据库值与实际文件是否一致（可执行 `sql/upgrade-script-covers.sql` 修复指向）。
+
+**Q6：上传封面失败**
+
+- 单文件上限 2MB（`struts.fileUpload.maximumSize`），仅支持 jpg/jpeg/png/webp/gif/svg。
+
+**Q7：构建时 `illegal character: '\ufeff'`**
+
+- 源文件带 UTF-8 BOM 所致，去除文件头 BOM 即可（历史问题出现在 `RegisterAction.java`，已修复；新增文件注意保存为无 BOM 的 UTF-8）。
+
+## 11. 相关文档
+
+- [README.md](../README.md)：项目简介与功能说明
+- [development-spec.md](development-spec.md)：架构、状态机、并发容量设计
+- [database-design.md](database-design.md)：数据库表结构
+- [routes.md](routes.md)：路由清单
+- [test-report.md](test-report.md)：测试报告
+- [known-limitations.md](known-limitations.md)：已知限制
+
 ```
 
-## Struts 2.5 迁移说明
-
-- 所有原 Servlet 已替换为 `action` 包下的 Action，请求路径保持不变：命名空间对应 URL 目录，Action 名称对应最后一段。例如 `/admin/scripts/form` 由 `namespace="/admin/scripts"` 的 `form` 处理，`/scripts/detail` 由 `namespace="/scripts"` 的 `detail` 处理。
-- 表单参数通过 Action 属性与 Setter 绑定（含文件上传的 `coverFile` / `coverFileFileName`），不再在 Action 中逐个 `getParameter`。
-- 页面跳转全部写在 `struts.xml` 的 `<result>` 中：JSP 转发使用默认 `dispatcher`，重定向使用 `redirect` 结果与 `redirectUrl` 属性。
-- 登录、角色与 CSRF 校验由 `AuthInterceptor` 完成，拦截器栈按角色划分（`publicStack`、`playerStack`、`staffStack`、`managerStack`、`adminStack`、`managementStack`）。
-- 未捕获异常由 `<global-exception-mappings>` 映射到统一错误页，`BusinessException` 仍在表单内就地提示，保持原有交互。
-
-
-## 关键业务约定
-
-- V1.0 支持拼场，单次预约可从 1 人起约；预约人数不得超过剧本上限和场次剩余容量。
-- 场次容量必须处于剧本最少/最多人数范围内。
-- `booked_count` 只统计 `CONFIRMED`、`CHECKED_IN`，取消、完成或未到店时在同一事务中释放。
-- `GET` 只读取数据；取消、审核、启停和状态流转均使用带 CSRF Token 的 `POST`。
-- 玩家只能操作本人预约与评价；管理权限由过滤器和服务层规则共同保障。
-
-更多信息见 `docs/development-spec.md`、`docs/database-design.md`、`docs/routes.md`、`docs/test-report.md`。
+```
