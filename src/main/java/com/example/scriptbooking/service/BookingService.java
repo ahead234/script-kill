@@ -14,6 +14,7 @@ import com.example.scriptbooking.util.Validators;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.time.LocalDateTime;
 import java.util.Set;
 
@@ -125,6 +126,71 @@ public class BookingService {
         } catch (SQLException e) {
             throw new BusinessException("更新预约状态失败", e);
         }
+    }
+
+    /**
+     * 预约改期：把一笔已确认的预约换到同一剧本的另一场次。
+     * 真实业务规则：仅本人操作、仅已确认预约、开演前 2 小时截止、每笔仅一次、同剧本、目标余位足够。
+     * 两侧场次的 booked_count 必须在同一事务里同增同减，否则会出现"原场次名额不放、新场次还占位"。
+     */
+    public void reschedule(long bookingId, long userId, long targetSessionId, String ip) {
+        try (Connection connection = Database.getConnection()) {
+            connection.setAutoCommit(false);
+            try {
+                Booking snapshot = bookingDao.findRaw(connection, bookingId)
+                        .orElseThrow(() -> new BusinessException("预约不存在"));
+                if (snapshot.getUserId() != userId) throw new BusinessException("无权修改他人的预约");
+                if (!"CONFIRMED".equals(snapshot.getStatus())) throw new BusinessException("仅已确认的预约可以改期");
+                if (snapshot.getRescheduleCount() >= 1) throw new BusinessException("每笔预约仅可改期一次");
+                if (snapshot.getSessionId() == targetSessionId) throw new BusinessException("新场次与当前场次相同，无需改期");
+
+                // 两个场次按主键升序加锁，避免两笔反向改期互相等待造成死锁
+                PlaySession first = lockSession(connection, Math.min(snapshot.getSessionId(), targetSessionId));
+                PlaySession second = lockSession(connection, Math.max(snapshot.getSessionId(), targetSessionId));
+                PlaySession source = first.getId() == snapshot.getSessionId() ? first : second;
+                PlaySession target = first.getId() == targetSessionId ? first : second;
+
+                if (!LocalDateTime.now().isBefore(source.getStartTime().minusHours(2))) {
+                    throw new BusinessException("开演前 2 小时内不可改期，如需调整请联系门店");
+                }
+                if (source.getScriptId() != target.getScriptId()) {
+                    throw new BusinessException("只能在同剧本的不同场次之间改期");
+                }
+                if (!"OPEN".equals(target.getStatus()) || !target.getStartTime().isAfter(LocalDateTime.now())) {
+                    throw new BusinessException("目标场次当前不可预约");
+                }
+                if (target.getRemainingCapacity() < snapshot.getPartySize()) {
+                    throw new BusinessException("目标场次仅剩 " + target.getRemainingCapacity() + " 位，少于本单人数");
+                }
+                if (bookingDao.activeExists(connection, userId, target.getId())) {
+                    throw new BusinessException("您在目标场次已有有效预约");
+                }
+
+                sessionDao.changeBookedCount(connection, source.getId(), -snapshot.getPartySize());
+                sessionDao.changeBookedCount(connection, target.getId(), snapshot.getPartySize());
+                if (!bookingDao.reschedule(connection, bookingId, target.getId())) {
+                    throw new BusinessException("预约状态已变化，请刷新后重试");
+                }
+                logDao.insert(connection, userId, "BOOKING_RESCHEDULE", "BOOKING", bookingId,
+                        "改期：" + source.getSessionCode() + " -> " + target.getSessionCode()
+                                + "，人数=" + snapshot.getPartySize(), ip);
+                connection.commit();
+            } catch (Exception e) {
+                rollback(connection);
+                if (e instanceof BusinessException) throw (BusinessException) e;
+                if (e instanceof SQLIntegrityConstraintViolationException) {
+                    throw new BusinessException("您在目标场次已有有效预约", e);
+                }
+                throw new BusinessException("改期失败，请稍后重试", e);
+            }
+        } catch (SQLException e) {
+            throw new BusinessException("改期失败，请稍后重试", e);
+        }
+    }
+
+    private PlaySession lockSession(Connection connection, long id) throws SQLException {
+        return sessionDao.findById(connection, id, true)
+                .orElseThrow(() -> new BusinessException("场次不存在"));
     }
 
     private void rollback(Connection connection) {

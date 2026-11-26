@@ -160,6 +160,12 @@
         <action name="cancel" class="com.example.scriptbooking.action.BookingAction" method="cancel">
             <allowed-methods>cancel</allowed-methods>
         </action>
+
+        <action name="reschedule" class="com.example.scriptbooking.action.BookingAction" method="reschedule">
+            <result name="success">/WEB-INF/views/booking/reschedule.jsp</result>
+            <result name="input">/WEB-INF/views/booking/reschedule.jsp</result>
+            <allowed-methods>reschedule</allowed-methods>
+        </action>
     </package>
 
     <!-- 玩家个人中心 -->

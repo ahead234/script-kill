@@ -36,3 +36,7 @@ build/
 
 ### Mac OS ###
 .DS_Store
+### 本地数据库口令，不入库（用 db.properties.example + 环境变量）###
+src/main/resources/db.properties
+
+.idea/

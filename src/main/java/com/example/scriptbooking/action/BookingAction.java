@@ -19,6 +19,7 @@ public class BookingAction extends BaseAction {
 
     private Long sessionId;
     private Long id;
+    private Long targetSessionId;
     private Integer partySize;
     private String contactName;
     private String contactPhone;
@@ -27,6 +28,7 @@ public class BookingAction extends BaseAction {
     private PlaySession playSession;
     private List<Booking> bookings;
     private Booking booking;
+    private List<PlaySession> candidates;
 
     public String create() throws Exception {
         return isPost() ? submit() : showForm();
@@ -93,6 +95,56 @@ public class BookingAction extends BaseAction {
         return redirectTo("/my/bookings");
     }
 
+    /**
+     * 改期入口：GET 渲染可选场次，POST 提交。
+     * 归属校验与规则判定都在这里做一次预检，真正的规则仍以 BookingService 为准（前端不承担校验）。
+     */
+    public String reschedule() throws Exception {
+        return isPost() ? submitReschedule() : showRescheduleForm();
+    }
+
+    private String showRescheduleForm() throws Exception {
+        Booking found = bookingDao.findById(requiredLong(id, "id")).orElse(null);
+        if (found == null) {
+            return notFound();
+        }
+        if (found.getUserId() != currentUser().getId()) {
+            return forbid();
+        }
+        if (!found.isReschedulable()) {
+            flash("danger", "该预约当前不可改期：仅已确认、未改过期且距开演 2 小时以上的预约可以改期");
+            return redirectTo("/bookings/detail?id=" + found.getId());
+        }
+        fillRescheduleForm(found);
+        return SUCCESS;
+    }
+
+    private String submitReschedule() throws Exception {
+        long bookingId = requiredLong(id, "id");
+        try {
+            bookingService.reschedule(bookingId, currentUser().getId(),
+                    requiredLong(targetSessionId, "targetSessionId"), clientIp());
+            flash("success", "改期成功，新的场次与名额已生效");
+            return redirectTo("/bookings/detail?id=" + bookingId);
+        } catch (BusinessException e) {
+            setError(e.getMessage());
+            Booking found = bookingDao.findById(bookingId).orElse(null);
+            if (found == null) {
+                return notFound();
+            }
+            fillRescheduleForm(found);
+            return INPUT;
+        }
+    }
+
+    private void fillRescheduleForm(Booking found) {
+        booking = found;
+        List<PlaySession> available = sessionDao.findAvailableByScript(found.getScriptId());
+        available.removeIf(session -> session.getId() == found.getSessionId());
+        candidates = available;
+        setPageTitle("申请改期");
+    }
+
     public PlaySession getPlaySession() {
         return playSession;
     }
@@ -105,12 +157,20 @@ public class BookingAction extends BaseAction {
         return booking;
     }
 
+    public List<PlaySession> getCandidates() {
+        return candidates;
+    }
+
     public void setSessionId(Long sessionId) {
         this.sessionId = sessionId;
     }
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public void setTargetSessionId(Long targetSessionId) {
+        this.targetSessionId = targetSessionId;
     }
 
     public void setPartySize(Integer partySize) {

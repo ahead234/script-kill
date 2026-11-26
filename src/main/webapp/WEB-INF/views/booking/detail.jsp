@@ -10,9 +10,13 @@
         <div class="detail-item"><dt>房间 / DM</dt><dd><c:out value="${booking.roomName}"/> / <c:out value="${booking.dmName}"/></dd></div>
         <div class="detail-item"><dt>联系人</dt><dd><c:out value="${booking.contactName}"/> · <c:out value="${booking.contactPhone}"/></dd></div>
         <div class="detail-item"><dt>预计金额</dt><dd>¥${booking.totalPrice}</dd></div>
+        <c:if test="${booking.rescheduleCount > 0}"><div class="detail-item"><dt>改期记录</dt><dd>已改期 ${booking.rescheduleCount} 次</dd></div></c:if>
     </dl>
     <c:if test="${not empty booking.playerNote}"><p class="muted">备注：<c:out value="${booking.playerNote}"/></p></c:if>
     <div class="actions">
+        <c:if test="${booking.reschedulable}">
+            <a class="button button-secondary" href="${pageContext.request.contextPath}/bookings/reschedule?id=${booking.id}">申请改期</a>
+        </c:if>
         <c:if test="${booking.status == 'CONFIRMED'}">
             <form method="post" action="${pageContext.request.contextPath}/bookings/cancel" data-confirm="确认取消该预约吗？">
                 <input type="hidden" name="csrfToken" value="<c:out value='${sessionScope.csrfToken}'/>"><input type="hidden" name="id" value="${booking.id}">

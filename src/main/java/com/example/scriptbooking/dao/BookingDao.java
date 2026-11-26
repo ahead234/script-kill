@@ -14,9 +14,11 @@ import java.sql.Statement;
 import java.util.Optional;
 
 public class BookingDao {
-    private static final String SELECT_DETAIL = "SELECT b.id,b.booking_code,b.user_id,b.session_id,b.party_size,b.contact_name,b.contact_phone," +
+    private static final String SELECT_DETAIL = "SELECT b.id,b.booking_code,b.user_id,b.session_id,b.original_session_id," +
+            "b.party_size,b.reschedule_count,b.contact_name,b.contact_phone," +
             "b.status,b.player_note,b.created_at,b.updated_at,u.display_name user_display_name,u.username," +
-            "ps.session_code,ps.start_time,ps.end_time,ps.room_name,ps.dm_name,ps.unit_price,s.title script_title,r.id review_id " +
+            "ps.session_code,ps.script_id,ps.start_time,ps.end_time,ps.room_name,ps.dm_name,ps.unit_price," +
+            "s.title script_title,r.id review_id " +
             "FROM booking b JOIN sys_user u ON u.id=b.user_id JOIN play_session ps ON ps.id=b.session_id " +
             "JOIN script_book s ON s.id=ps.script_id LEFT JOIN review r ON r.booking_id=b.id ";
 
@@ -65,7 +67,8 @@ public class BookingDao {
     }
 
     private Optional<Booking> findRaw(Connection connection, long id, boolean forUpdate) throws SQLException {
-        String sql = "SELECT id,booking_code,user_id,session_id,party_size,contact_name,contact_phone,status,player_note,created_at,updated_at " +
+        String sql = "SELECT id,booking_code,user_id,session_id,original_session_id,party_size,reschedule_count," +
+                "contact_name,contact_phone,status,player_note,created_at,updated_at " +
                 "FROM booking WHERE id=?" + (forUpdate ? " FOR UPDATE" : "");
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setLong(1, id);
@@ -121,6 +124,22 @@ public class BookingDao {
         try (PreparedStatement statement = connection.prepareStatement("UPDATE booking SET status=? WHERE id=?")) {
             statement.setString(1, status); statement.setLong(2, id);
             if (statement.executeUpdate() == 0) throw new BusinessException("预约不存在");
+        }
+    }
+
+    /**
+     * 改期条件更新：同时校验"仍为已确认"与"未改过期"，把并发下可能出现的
+     * 重复改期收敛到一条 UPDATE，返回 false 表示状态已被其他请求改变。
+     * active_user_session 生成列会随 session_id 重算，目标场次重复预约由唯一键兜底。
+     */
+    public boolean reschedule(Connection connection, long id, long targetSessionId) throws SQLException {
+        String sql = "UPDATE booking SET original_session_id=IFNULL(original_session_id, session_id), " +
+                "session_id=?, reschedule_count=reschedule_count+1, updated_at=NOW() " +
+                "WHERE id=? AND status='CONFIRMED' AND reschedule_count<1";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setLong(1, targetSessionId);
+            statement.setLong(2, id);
+            return statement.executeUpdate() > 0;
         }
     }
 
@@ -208,7 +227,9 @@ public class BookingDao {
         Booking booking = new Booking();
         booking.setId(rs.getLong("id")); booking.setBookingCode(rs.getString("booking_code"));
         booking.setUserId(rs.getLong("user_id")); booking.setSessionId(rs.getLong("session_id"));
-        booking.setPartySize(rs.getInt("party_size")); booking.setContactName(rs.getString("contact_name"));
+        booking.setOriginalSessionId(JdbcMapping.nullableLong(rs, "original_session_id"));
+        booking.setPartySize(rs.getInt("party_size")); booking.setRescheduleCount(rs.getInt("reschedule_count"));
+        booking.setContactName(rs.getString("contact_name"));
         booking.setContactPhone(rs.getString("contact_phone")); booking.setStatus(rs.getString("status"));
         booking.setPlayerNote(rs.getString("player_note")); booking.setCreatedAt(JdbcMapping.dateTime(rs, "created_at"));
         booking.setUpdatedAt(JdbcMapping.dateTime(rs, "updated_at"));
@@ -219,6 +240,7 @@ public class BookingDao {
         Booking booking = mapRaw(rs);
         booking.setUserDisplayName(rs.getString("user_display_name")); booking.setUsername(rs.getString("username"));
         booking.setSessionCode(rs.getString("session_code")); booking.setScriptTitle(rs.getString("script_title"));
+        booking.setScriptId(rs.getLong("script_id"));
         booking.setStartTime(JdbcMapping.dateTime(rs, "start_time")); booking.setEndTime(JdbcMapping.dateTime(rs, "end_time"));
         booking.setRoomName(rs.getString("room_name")); booking.setDmName(rs.getString("dm_name"));
         booking.setUnitPrice(rs.getBigDecimal("unit_price")); booking.setReviewId(JdbcMapping.nullableLong(rs, "review_id"));

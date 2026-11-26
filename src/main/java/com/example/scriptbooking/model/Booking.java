@@ -8,7 +8,9 @@ public class Booking {
     private String bookingCode;
     private long userId;
     private long sessionId;
+    private Long originalSessionId;
     private int partySize;
+    private int rescheduleCount;
     private String contactName;
     private String contactPhone;
     private String status;
@@ -18,6 +20,7 @@ public class Booking {
     private String userDisplayName;
     private String username;
     private String sessionCode;
+    private long scriptId;
     private String scriptTitle;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
@@ -34,6 +37,19 @@ public class Booking {
     public void setUserId(long userId) { this.userId = userId; }
     public long getSessionId() { return sessionId; }
     public void setSessionId(long sessionId) { this.sessionId = sessionId; }
+    public Long getOriginalSessionId() { return originalSessionId; }
+    public void setOriginalSessionId(Long originalSessionId) { this.originalSessionId = originalSessionId; }
+    public int getRescheduleCount() { return rescheduleCount; }
+    public void setRescheduleCount(int rescheduleCount) { this.rescheduleCount = rescheduleCount; }
+
+    /**
+     * 是否允许自助改期：已确认、未改过期、且距开演还有 2 小时以上。
+     * 规则放在模型里，列表页、详情页与 Action 共用同一判定，避免三处各写一遍。
+     */
+    public boolean isReschedulable() {
+        return "CONFIRMED".equals(status) && rescheduleCount < 1 && startTime != null
+                && LocalDateTime.now().isBefore(startTime.minusHours(2));
+    }
     public int getPartySize() { return partySize; }
     public void setPartySize(int partySize) { this.partySize = partySize; }
     public String getContactName() { return contactName; }
@@ -54,6 +70,8 @@ public class Booking {
     public void setUsername(String username) { this.username = username; }
     public String getSessionCode() { return sessionCode; }
     public void setSessionCode(String sessionCode) { this.sessionCode = sessionCode; }
+    public long getScriptId() { return scriptId; }
+    public void setScriptId(long scriptId) { this.scriptId = scriptId; }
     public String getScriptTitle() { return scriptTitle; }
     public void setScriptTitle(String scriptTitle) { this.scriptTitle = scriptTitle; }
     public LocalDateTime getStartTime() { return startTime; }
